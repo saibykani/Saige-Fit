@@ -7,22 +7,44 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function send<T>(path: string, init: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
-      method: init.method ?? (init.body ? 'POST' : 'GET'),
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: init.body ? JSON.stringify(init.body) : undefined,
-    });
+    res = await fetch(`${BASE}${path}`, init);
   } catch {
     throw new ApiError(0, 'Network error. Check your connection and try again.');
   }
   if (!res.ok) {
     const detail = await res.json().then((j) => j.detail).catch(() => undefined);
-    throw new ApiError(res.status, typeof detail === 'string' ? detail : `Request failed (${res.status})`);
+    const fallback = res.status === 429 ? 'Too many requests. Please wait a moment.' : `Request failed (${res.status})`;
+    throw new ApiError(res.status, typeof detail === 'string' ? detail : fallback);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  return send<T>(path, {
+    method: init.method ?? (init.body !== undefined ? 'POST' : 'GET'),
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+  });
+}
+
+/** Multipart upload of a single local file (React Native FormData file part). */
+export async function apiUploadFile<T>(path: string, field: string, file: { uri: string; name: string; type: string }): Promise<T> {
+  const form = new FormData();
+  // React Native's FormData accepts {uri,name,type} file descriptors, which the DOM typings don't model.
+  form.append(field, file as unknown as Blob);
+  return send<T>(path, { method: 'POST', headers: await authHeader(), body: form });
+}
+
+export function errorMessage(e: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  return e instanceof ApiError || e instanceof Error ? e.message || fallback : fallback;
 }

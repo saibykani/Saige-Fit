@@ -1,0 +1,14 @@
+ok  - auth trigger mirrors users + creates free subscription
+ok  - user only sees own rows
+ok  - cannot insert rows for another user
+ok  - cannot update/delete another user's rows (silently 0 rows)
+ok  - check constraints reject absurd weight
+ok  - meal_items hidden from other users
+ok  - other user cannot attach items to my meal
+ok  - seed: every food has nutrition, vegetarian filter excludes meat
+ok  - custom foods private; curated foods shared
+ok  - users cannot write curated foods
+ok  - subscriptions are read-only to clients
+ok  - storage: only own folder
+
+12 DB tests passed

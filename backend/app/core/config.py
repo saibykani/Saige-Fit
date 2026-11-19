@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     rate_limit_default: str = "60/minute"
     rate_limit_ai: str = "10/minute"
     max_upload_mb: int = 8
+    allow_dev_tier_switch: bool = False
 
     @property
     def is_prod(self) -> bool:

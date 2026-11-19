@@ -73,6 +73,10 @@ async def dashboard(day: date = Query(alias="date"), hour: int = Query(default=N
     meals = await db.select("meal_logs", select="id,meal_type,meal_items(*)", user_id=f"eq.{user.id}", log_date=f"eq.{d}")
     water = await db.select("hydration_logs", select="amount_ml", user_id=f"eq.{user.id}", log_date=f"eq.{d}",
                             counts_toward_goal="eq.true")
+    act = await db.select("daily_activity", select="steps,sleep_hours", user_id=f"eq.{user.id}", log_date=f"eq.{d}")
+    sessions = await db.select("workout_sessions", select="started_at,finished_at,kcal_burned", user_id=f"eq.{user.id}",
+                               log_date=f"eq.{d}")
+    planned = await db.select("diet_plan_meals", select="meal_type,name,kcal", plan_date=f"eq.{d}")  # RLS: own plans only
     items = [nutrients_from_row(i) for m in meals for i in m["meal_items"]]
     targets = {"kcal": p["target_kcal"], "protein_g": p["target_protein_g"], "carbs_g": p["target_carbs_g"],
                "fat_g": p["target_fat_g"], "fiber_g": p["target_fiber_g"]}
@@ -85,6 +89,66 @@ async def dashboard(day: date = Query(alias="date"), hour: int = Query(default=N
         "water_ml": water_ml, "water_target_ml": p["target_water_ml"],
         "meals": [{"id": m["id"], "meal_type": m["meal_type"],
                    "kcal": round(sum(float(i["kcal"]) for i in m["meal_items"]), 1)} for m in meals],
+        "activity": _activity(act, sessions),
+        "meal_slots": _meal_slots(meals, planned),
         "insights": ne.insights(summary, water_ml=water_ml, water_target_ml=p["target_water_ml"], hour=h,
                                 protein_target_g=p["target_protein_g"]),
     }
+
+
+SLOTS = ["early_morning", "breakfast", "mid_morning", "lunch", "evening_snack", "dinner"]
+
+
+def _activity(act: list[dict], sessions: list[dict]) -> dict:
+    """steps/sleep come from the user's daily_activity row; workout figures from finished sessions."""
+    a = act[0] if act else {}
+    minutes = 0.0
+    kcal = 0.0
+    for x in sessions:
+        if not x.get("finished_at"):
+            continue
+        try:
+            st = datetime.fromisoformat(str(x["started_at"]).replace("Z", "+00:00"))
+            en = datetime.fromisoformat(str(x["finished_at"]).replace("Z", "+00:00"))
+            minutes += max(0.0, (en - st).total_seconds() / 60)
+        except (KeyError, ValueError):
+            pass
+        kcal += float(x.get("kcal_burned") or 0)
+    return {"steps": a.get("steps"), "sleep_hours": None if a.get("sleep_hours") is None else float(a["sleep_hours"]),
+            "workout_minutes": round(minutes), "active_kcal": round(kcal)}  # active_kcal = estimated, from workouts
+
+
+def _meal_slots(meals: list[dict], planned: list[dict]) -> list[dict]:
+    """Planned (from today's diet plan) vs logged calories for each meal slot."""
+    logged: dict[str, float] = {}
+    for m in meals:
+        logged[m["meal_type"]] = logged.get(m["meal_type"], 0.0) + sum(float(i["kcal"]) for i in m["meal_items"])
+    plan: dict[str, list[dict]] = {}
+    for p in planned:
+        plan.setdefault(p["meal_type"], []).append(p)
+    slots = SLOTS + [k for k in list(logged) + list(plan) if k not in SLOTS]
+    seen, out = set(), []
+    for k in slots:
+        if k in seen or (k not in SLOTS and k not in logged and k not in plan):
+            continue
+        seen.add(k)
+        out.append({"meal_type": k, "planned_kcal": round(sum(float(p["kcal"]) for p in plan[k]), 1) if k in plan else None,
+                    "planned_meals": [p["name"] for p in plan.get(k, [])], "logged_kcal": round(logged.get(k, 0.0), 1)})
+    return out
+
+
+class ActivityIn(BaseModel):
+    date: date
+    steps: int | None = Field(default=None, ge=0, le=200_000)
+    sleep_hours: float | None = Field(default=None, ge=0, le=24)
+
+
+@router.post("/activity")
+async def log_activity(body: ActivityIn, user: CurrentUser = Depends(current_user), db: Rest = Depends(get_db)):
+    vals = {k: v for k, v in (("steps", body.steps), ("sleep_hours", body.sleep_hours)) if v is not None}
+    if not vals:
+        raise HTTPException(422, "Provide steps and/or sleep_hours")
+    # only provided fields are written, so logging steps never wipes a previously logged sleep value
+    row = (await db.upsert("daily_activity", {"user_id": user.id, "log_date": body.date.isoformat(), **vals},
+                           on_conflict="user_id,log_date"))[0]
+    return {"date": body.date.isoformat(), "steps": row.get("steps"), "sleep_hours": row.get("sleep_hours")}

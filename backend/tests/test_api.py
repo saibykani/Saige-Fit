@@ -8,8 +8,15 @@ from app.core.config import Settings, get_settings
 from app.main import app
 
 SECRET = "test-secret-test-secret-test-secret-123"
-app.dependency_overrides[get_settings] = lambda: Settings(supabase_jwt_secret=SECRET)
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _settings_override():
+    # per-test (other fixtures clear dependency_overrides on teardown)
+    app.dependency_overrides[get_settings] = lambda: Settings(supabase_jwt_secret=SECRET)
+    yield
+    app.dependency_overrides.pop(get_settings, None)
 
 BODY = {
     "date_of_birth": "1995-05-01", "gender": "male", "weight_kg": 80, "height_cm": 180,

@@ -46,17 +46,26 @@ Use separate Supabase projects and `.env` files for development, staging and pro
 
 ## Tests
 ```bash
-cd backend && pytest                      # 54 tests: engines, API, scanner, meals, dashboard, auth
-cd supabase/tests && npm i && npm test    # 12 tests: migrations + RLS isolation on real Postgres (PGlite)
+cd backend && pytest                      # 442 tests
+cd supabase/tests && npm i && for f in *.test.mjs; do node $f; done   # 42 tests on real Postgres (PGlite)
 cd mobile && npm run typecheck
 ```
+APK build steps: [docs/BUILD_APK.md](docs/BUILD_APK.md). API: [docs/API_CONTRACT.md](docs/API_CONTRACT.md).
 
 ## Status (honest)
-| Phase | State |
-|---|---|
-| 1 Foundation | Schema, RLS, JWT auth, rate limiting, design system, tabs: done and tested. Auth screens and onboarding UI **not built** |
-| 2 Fitness engine | Targets engine + `/v1/profile/targets` + `/v1/dashboard` done and tested. Saving the profile from onboarding is **not built** |
-| 3 Food intelligence | Done server-side and tested with fakes: vision identification pipeline (`/v1/scan`: file validation, consent, entitlement, rate limit), DB matching, engine-computed nutrition, `/v1/meals`, `/v1/foods/search`, 31-food curated seed. **Not done:** mobile camera/gallery/results UI, barcode (Open Food Facts), USDA/IFCT import. **The real Claude vision call has never been run** (no API key in this environment); only a fake client was tested |
-| 4-8 | Diet planner, workouts, progress, hydration endpoints, AI chat, notifications, subscriptions, store prep: **not started** |
+**Built and covered by automated tests (backend + DB):** profile/onboarding persistence, consent, export/delete account,
+barcode (Open Food Facts) + USDA import, custom/favorite foods, meals, hydration, weight/measurements/photos, analytics,
+notification settings, subscriptions/entitlements, exercise library + workout generator + sessions/PRs, diet planner +
+shopping list + recommendations, recipes, AI coach with safety rules, weekly report.
 
-Curated food values are approximate reference figures, not licensed lab data. Replace or extend them with IFCT and USDA imports before launch.
+**Built, typechecks, but NOT yet run on a device/emulator:** the entire mobile app (auth, 7-step onboarding, home, food
+journal, scanner, water, workouts, planner, recipes, progress, coach, analytics, settings, paywall).
+Animations, layout and permission flows have not been visually verified.
+
+**Not verified / not done:**
+- The real Claude vision and chat calls and the Open Food Facts/USDA calls have never been run (no keys/network in dev); tests use fakes.
+- Google/Apple sign-in needs provider setup in Supabase and store credentials.
+- Billing is architecture-only: `/v1/subscription/verify` returns 501 until Google Play / App Store credentials exist. Prices are not hardcoded.
+- Food values are approximate reference data; import licensed IFCT/USDA data before launch.
+- Exercise media are placeholders (no licensed videos); push notifications are scheduled locally.
+- APK: not built yet; see docs/BUILD_APK.md (needs Node 20/22).
