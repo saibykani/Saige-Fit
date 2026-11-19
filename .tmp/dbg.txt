@@ -1,1 +1,0 @@
-422 {"detail":[{"type":"literal_error","loc":["query","range"],"msg":"Input should be 30, 90 or 365","input":"30","ctx":{"expected":"30, 90 or 365"}}]}
