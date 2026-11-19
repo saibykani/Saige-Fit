@@ -6,7 +6,10 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.config import get_settings
 from app.core.limits import limiter
-from app.routers import foods, meals, profile, scan
+import importlib
+import pkgutil
+
+import app.routers as _routers_pkg
 
 settings = get_settings()
 
@@ -38,5 +41,8 @@ def healthz():
     return {"status": "ok", "env": settings.environment}
 
 
-for r in (profile, foods, meals, scan):
-    app.include_router(r.router)
+# every module in app/routers exposing `router` is registered automatically
+for _m in pkgutil.iter_modules(_routers_pkg.__path__):
+    _mod = importlib.import_module(f"app.routers.{_m.name}")
+    if hasattr(_mod, "router"):
+        app.include_router(_mod.router)

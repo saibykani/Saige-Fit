@@ -5,16 +5,50 @@
     "scheme": "saigefit",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      ["expo-camera", { "cameraPermission": "Saige Fit uses the camera to scan your meals and barcodes." }],
-      ["expo-image-picker", { "photosPermission": "Saige Fit lets you pick meal and progress photos." }],
-      "expo-notifications"
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Saige Fit uses the camera to scan your meals and barcodes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Saige Fit lets you pick meal and progress photos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#C6FF3D"
+        }
+      ]
     ],
-    "ios": { "bundleIdentifier": "com.saigefit.app", "supportsTablet": false },
-    "android": { "package": "com.saigefit.app" },
-    "experiments": { "typedRoutes": true }
+    "ios": {
+      "bundleIdentifier": "com.saigefit.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.saigefit.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#07080A"
+      },
+      "permissions": [
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "ACTIVITY_RECOGNITION"
+      ]
+    },
+    "backgroundColor": "#07080A",
+    "splash": {
+      "backgroundColor": "#07080A",
+      "resizeMode": "contain"
+    }
   }
 }

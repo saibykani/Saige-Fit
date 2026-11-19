@@ -34,6 +34,20 @@ class Rest:
     async def insert(self, table: str, rows: list[dict] | dict) -> list[dict]:
         return await self._req("POST", table, json=rows, prefer="return=representation")
 
+    async def upsert(self, table: str, rows: list[dict] | dict, on_conflict: str) -> list[dict]:
+        return await self._req("POST", table, params={"on_conflict": on_conflict}, json=rows,
+                               prefer="resolution=merge-duplicates,return=representation")
+
+    async def update(self, table: str, values: dict, **filters) -> list[dict]:
+        if not filters:
+            raise ValueError("update requires at least one filter")
+        return await self._req("PATCH", table, params=filters, json=values, prefer="return=representation")
+
+    async def delete(self, table: str, **filters) -> list[dict]:
+        if not filters:
+            raise ValueError("delete requires at least one filter")
+        return await self._req("DELETE", table, params=filters, prefer="return=representation")
+
 
 def get_db(user: CurrentUser = Depends(current_user), s: Settings = Depends(get_settings)) -> Rest:
     return Rest(s.supabase_url, s.supabase_anon_key, user.token)
