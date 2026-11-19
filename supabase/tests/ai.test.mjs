@@ -18,8 +18,21 @@ await db.exec(`
   create function storage.foldername(name text) returns text[] language sql immutable as
     $$ select string_to_array(name, '/') $$;
 `);
+// PGlite's parser runs out of memory on very large single scripts (the 90 KB seed), so feed it
+// whole statements in small batches. Statement boundaries respect $$ ... $$ blocks.
+async function execChunked(text, perChunk = 25) {
+  const stmts = []; let cur = []; let inDollar = false;
+  const NL = String.fromCharCode(10);
+  for (const line of text.split(NL)) {
+    cur.push(line);
+    if ((line.match(/[$][$]/g) || []).length % 2 === 1) inDollar = !inDollar;
+    if (!inDollar && line.trimEnd().endsWith(';')) { stmts.push(cur.join(NL)); cur = []; }
+  }
+  if (cur.join('').trim()) stmts.push(cur.join(NL));
+  for (let i = 0; i < stmts.length; i += perChunk) await db.exec(stmts.slice(i, i + perChunk).join(NL));
+}
 for (const f of ['0001_schema.sql', '0002_rls.sql', '0003_seed_foods.sql', '0004_core_extras.sql',
-                 '0005_training_diet.sql', '0006_seed_exercises_recipes.sql']) await db.exec(sql(f));
+                 '0005_training_diet.sql', '0006_seed_exercises_recipes.sql']) await execChunked(sql(f));
 await db.exec(`grant usage on schema public, auth, storage to authenticated;
   grant all on all tables in schema public to authenticated;
   grant select on all tables in schema storage to authenticated;`);
