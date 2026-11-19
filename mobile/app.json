@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Saige Fit",
+    "slug": "saige-fit",
+    "scheme": "saigefit",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      ["expo-camera", { "cameraPermission": "Saige Fit uses the camera to scan your meals and barcodes." }],
+      ["expo-image-picker", { "photosPermission": "Saige Fit lets you pick meal and progress photos." }],
+      "expo-notifications"
+    ],
+    "ios": { "bundleIdentifier": "com.saigefit.app", "supportsTablet": false },
+    "android": { "package": "com.saigefit.app" },
+    "experiments": { "typedRoutes": true }
+  }
+}
