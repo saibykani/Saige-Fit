@@ -73,4 +73,4 @@ Animations, layout and permission flows have not been visually verified.
 
 ## Android APK download
 Direct link (served from the website): https://saige-fit-app.vercel.app/saige-fit.apk
-The file lives at `mobile/public/saige-fit.apk`. Debug-signed, arm64, demo mode on; for testing only.
+The file lives at `mobile/public/saige-fit.apk`. Debug-signed, arm64, real login and backend (no demo mode); for testing only.
