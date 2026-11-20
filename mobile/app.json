@@ -28,7 +28,17 @@
           "color": "#C6FF3D"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      "expo-health-connect",
+      "./plugins/withHealthConnectDelegate"
     ],
     "ios": {
       "bundleIdentifier": "com.saigefit.app",
@@ -42,7 +52,12 @@
       "permissions": [
         "CAMERA",
         "POST_NOTIFICATIONS",
-        "ACTIVITY_RECOGNITION"
+        "ACTIVITY_RECOGNITION",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_HEART_RATE"
       ]
     },
     "backgroundColor": "#07080A",

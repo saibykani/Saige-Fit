@@ -12,6 +12,7 @@ import { useDay } from '@/features/common/dayStore';
 import { useDashboard, useLogActivity, useQuickWater, useWorkoutToday } from '@/features/home/api';
 import { ActivityGrid, CalorieHero, HomeSkeleton, Insights, MacroRings, Schedule, SleepSheet } from '@/features/home/HomeParts';
 import { useSteps, useSyncSteps } from '@/features/home/usePedometer';
+import { useHealthConnect } from '@/features/health/useHealthConnect';
 
 export default function Home() {
   const t = useTheme();
@@ -32,10 +33,15 @@ export default function Home() {
   }, [dash.error, router]);
 
   const serverSteps = dash.data?.activity?.steps;
+  // Prefer Health Connect (already synced to the server) when connected on Android.
+  const hcHealth = useHealthConnect();
+  const hcSteps = hcHealth.connected ? hcHealth.snapshot?.steps ?? null : null;
+  const { connected: hcOn, sync: hcSync } = hcHealth;
+  useEffect(() => { if (hcOn) hcSync().then(() => qc.invalidateQueries({ queryKey: ['dashboard'] })); }, [hcOn]); // eslint-disable-line react-hooks/exhaustive-deps
   const pedo = useSteps(isToday, serverSteps, !!dash.data);
   const refreshDash = useCallback(() => { qc.invalidateQueries({ queryKey: ['dashboard'] }); }, [qc]);
-  useSyncSteps(isToday ? pedo.steps : null, serverSteps, refreshDash);
-  const shownSteps = isToday ? pedo.steps : serverSteps ?? null;
+  useSyncSteps(isToday && hcSteps == null ? pedo.steps : null, serverSteps, refreshDash);
+  const shownSteps = isToday ? (hcSteps ?? pedo.steps) : serverSteps ?? null;
 
   const name = me.data?.user.full_name?.split(' ')[0];
   const initial = (me.data?.user.full_name ?? me.data?.user.email ?? '?').slice(0, 1).toUpperCase();

@@ -98,6 +98,7 @@ export default function ProfileTab() {
             <Section title="Account" index={2}>
               <Card padded={false} style={{ paddingHorizontal: 16 }}>
                 <ListRow icon="create-outline" title="Edit profile & goals" subtitle="Update body stats, goal and preferences" onPress={() => router.push('/settings/edit-profile')} />
+                <ListRow icon="fitness-outline" title="Google Fit / Health Connect" subtitle="Sync steps, sleep and weight" onPress={() => router.push('/settings/health')} />
                 <ListRow icon="notifications-outline" title="Reminders" subtitle="Meals, water, workouts and reports" onPress={() => router.push('/settings/notifications')} />
                 <ListRow icon="sparkles-outline" title="Subscription" subtitle={`Current plan: ${tier[0].toUpperCase() + tier.slice(1)}`} onPress={() => router.push('/paywall')} />
                 <ListRow icon="analytics-outline" title="Analytics & reports" onPress={() => router.push('/analytics')} />

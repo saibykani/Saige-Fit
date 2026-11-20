@@ -58,6 +58,7 @@ export default function Privacy() {
         <Card>
           <View style={{ gap: 12 }}>
             <Text v="body" muted>Privacy policy accepted: {me.data?.user.privacy_consent_at ? new Date(me.data.user.privacy_consent_at).toLocaleDateString() : 'not recorded'}.</Text>
+            <Text v="caption" muted>Health data synced from Google Fit / Health Connect (steps, sleep, weight) is stored in your account, included in your export and removed when you delete your account. Disconnect any time in Settings, Google Fit / Health Connect.</Text>
             <Button title="Export my data" icon="download-outline" variant="secondary" size="md" loading={exportData.isPending} onPress={() => exportData.mutate()} />
           </View>
         </Card>
