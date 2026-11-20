@@ -10,7 +10,6 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
-      "expo-web-browser",
       [
         "expo-camera",
         {
@@ -28,7 +27,8 @@
         {
           "color": "#C6FF3D"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "ios": {
       "bundleIdentifier": "com.saigefit.app",
@@ -49,6 +49,11 @@
     "splash": {
       "backgroundColor": "#07080A",
       "resizeMode": "contain"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "backgroundColor": "#07080A"
     }
   }
 }
