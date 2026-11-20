@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, ScrollView, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,10 +11,11 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { spring } from '@/theme/tokens';
 import { Button, Card, Chip, Icon, IconButton, PressableScale, ProgressBar, Ring, Sheet, Skeleton, Text, EmptyState, haptic } from '@/ui';
 import { ErrorPanel, errorInfo } from '@/features/paywall/gate';
-import { Burst } from '@/features/workout/Burst';
-import { Exercise, PLAN_KEY, PR, prName, repsLabel, usePlan, usePrs } from '@/features/workout/api';
+import { Confetti } from '@/ui/Confetti';
+import { SwipeRow } from '@/ui/gestures';
+import { Exercise, PLAN_KEY, PR, repsLabel, useExerciseHistory, usePlan, usePrs } from '@/features/workout/api';
 import { ExState, SetRow, sessionProgress, useSession } from '@/features/workout/sessionStore';
-import { KG_PER_LB, displayWeight, num, usePrefs, weightUnit } from '@/features/settings/util';
+import { KG_PER_LB, displayWeight, num, shortDate, usePrefs, weightUnit } from '@/features/settings/util';
 
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -34,8 +35,18 @@ function Stepper({ value, label, onMinus, onPlus, width = 112 }: { value: string
   );
 }
 
-function SetRowView({ n, row, units, onAdjust, onTick }: {
-  n: number; row: SetRow; units: 'metric' | 'imperial'; onAdjust: (f: 'reps' | 'weight_kg', d: number) => void; onTick: () => void;
+function QuickChip({ label, onPress }: { label: string; onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <PressableScale onPress={onPress} hapticStyle="select" accessibilityLabel={label}
+      style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: t.surfaceAlt, borderWidth: 1, borderColor: t.border }}>
+      <Text v="caption" muted style={{ fontSize: 11 }}>{label}</Text>
+    </PressableScale>
+  );
+}
+
+function SetRowView({ n, row, units, onAdjust, onTick, onCopyPrev }: {
+  n: number; row: SetRow; units: 'metric' | 'imperial'; onAdjust: (f: 'reps' | 'weight_kg', d: number) => void; onTick: () => void; onCopyPrev?: () => void;
 }) {
   const t = useTheme();
   const bounce = useSharedValue(1);
@@ -43,9 +54,11 @@ function SetRowView({ n, row, units, onAdjust, onTick }: {
   const wStep = units === 'metric' ? 2.5 : 5 * KG_PER_LB;
   const shown = displayWeight(row.weight_kg, units);
   const tick = () => { bounce.value = withSequence(withSpring(1.25, spring), withSpring(1, spring)); onTick(); };
+  const unitStep = (v: number) => (units === 'metric' ? v : v * KG_PER_LB);
   return (
-    <Animated.View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 20,
+    <View style={{ padding: 12, borderRadius: 20, gap: 8,
       backgroundColor: row.done ? t.accent + '1F' : row.skipped ? t.surfaceAlt : t.surface, borderWidth: 1, borderColor: row.done ? t.accent + '66' : t.border, opacity: row.skipped ? 0.5 : 1 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <View style={{ width: 26, alignItems: 'center' }}><Text v="bodyStrong" muted>{n}</Text></View>
       <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
         <Stepper label={weightUnit(units).toUpperCase()} value={String(Number(shown.toFixed(1)))} onMinus={() => onAdjust('weight_kg', -wStep)} onPlus={() => onAdjust('weight_kg', wStep)} />
@@ -57,7 +70,17 @@ function SetRowView({ n, row, units, onAdjust, onTick }: {
           <Icon name={row.failed ? 'cloud-offline' : row.pending ? 'sync' : 'checkmark'} size={22} color={row.done ? t.onAccent : row.failed ? t.warn : t.textMuted} />
         </PressableScale>
       </Animated.View>
-    </Animated.View>
+    </View>
+    {!row.skipped && (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 34 }}>
+        <QuickChip label={`+5 ${weightUnit(units)}`} onPress={() => onAdjust('weight_kg', unitStep(5))} />
+        <QuickChip label={`+10 ${weightUnit(units)}`} onPress={() => onAdjust('weight_kg', unitStep(10))} />
+        <QuickChip label="+2 reps" onPress={() => onAdjust('reps', 2)} />
+        <QuickChip label="+5 reps" onPress={() => onAdjust('reps', 5)} />
+        {onCopyPrev && <QuickChip label="Same as last set" onPress={onCopyPrev} />}
+      </View>
+    )}
+    </View>
   );
 }
 
@@ -65,7 +88,8 @@ export default function SessionScreen() {
   const t = useTheme();
   const router = useRouter();
   const qc = useQueryClient();
-  const { dayId, resumeId } = useLocalSearchParams<{ dayId: string; resumeId?: string }>();
+  const { dayId, resumeId, quick } = useLocalSearchParams<{ dayId?: string; resumeId?: string; quick?: string }>();
+  const isQuick = quick === '1';
   const plan = usePlan();
   const prs = usePrs();
   const units = usePrefs((s) => s.units);
@@ -86,19 +110,19 @@ export default function SessionScreen() {
 
   // start (or re-enter) the session once the plan + PR hints are loaded
   useEffect(() => {
-    if (started.current || !plan.data || (!prs.isFetched && !prs.isError)) return;
-    const day = plan.data.days.find((d) => d.id === dayId);
+    if (started.current || (!isQuick && !plan.data) || (!prs.isFetched && !prs.isError)) return;
+    const day = isQuick ? s.pendingQuick ?? (s.day?.id === 'quick' ? s.day : null) : plan.data!.days.find((d) => d.id === dayId);
     if (!day) return;
     started.current = true;
     if (s.day?.id === day.id && s.sessionId) return; // re-entering an in-progress session
     const w: Record<string, number> = {};
     Object.entries(best).forEach(([id, p]) => { w[id] = num(p.weight_kg); });
     s.begin(day, resumeId ?? null, w).catch((e) => setStartErr(e));
-  }, [plan.data, prs.isFetched, prs.isError, dayId, resumeId, best, s]);
+  }, [plan.data, prs.isFetched, prs.isError, dayId, resumeId, best, s, isQuick]);
 
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   useEffect(() => {
-    if (rest && now >= rest.end) { haptic.success(); setRest(null); }
+    if (rest && now >= rest.end) { haptic.success(); Vibration.vibrate([0, 250, 120, 250]); setRest(null); }
   }, [now, rest]);
   // retry unsynced sets whenever the connection might be back
   useEffect(() => { const id = setInterval(() => { useSession.getState().retryFailed(); }, 15000); return () => clearInterval(id); }, []);
@@ -144,7 +168,7 @@ export default function SessionScreen() {
         const failing = await s.retryFailed();
         if (failing > 0) { Alert.alert('Some sets have not synced', 'Check your connection, then tap Finish again. Nothing was lost.'); return; }
         await s.finish();
-        qc.invalidateQueries({ queryKey: ['workout-stats'] }); qc.invalidateQueries({ queryKey: ['workout-prs'] });
+        qc.invalidateQueries({ queryKey: ['workout-stats'] }); qc.invalidateQueries({ queryKey: ['ex-history'] }); qc.invalidateQueries({ queryKey: ['workout-overview'] }); qc.invalidateQueries({ queryKey: ['workout-prs'] });
         qc.invalidateQueries({ queryKey: ['workout-today'] }); qc.invalidateQueries({ queryKey: ['workout-history'] }); qc.invalidateQueries({ queryKey: ['dashboard'] });
         router.replace('/workout/summary');
       } catch (e) { Alert.alert('Could not finish', errorInfo(e).message); } finally { setBusy(false); }
@@ -159,12 +183,22 @@ export default function SessionScreen() {
 
   const remaining = rest ? Math.max(0, Math.ceil((rest.end - now) / 1000)) : 0;
   const b = ex ? best[ex.plan.exercise.id] : undefined;
+  const hist = useExerciseHistory(ex?.plan.exercise.id, !!s.sessionId);
+  const prefilled = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const id = ex?.plan.exercise.id;
+    const sug = hist.data?.suggestion;
+    if (!id || !sug || prefilled.current.has(id)) return;
+    prefilled.current.add(id);
+    if (sug.weight_kg != null && ex!.sets.every((r) => !r.done && r.weight_kg === 0)) s.prefill(s.index, sug.weight_kg, null);
+  }, [hist.data, ex, s]);
+  const last = hist.data?.sessions[0];
 
-  if (plan.isError) return <SafeAreaView style={{ flex: 1, backgroundColor: t.bg, padding: 16 }}><ErrorPanel error={plan.error} onRetry={() => plan.refetch()} /></SafeAreaView>;
+  if (plan.isError && !isQuick) return <SafeAreaView style={{ flex: 1, backgroundColor: t.bg, padding: 16 }}><ErrorPanel error={plan.error} onRetry={() => plan.refetch()} /></SafeAreaView>;
   if (startErr) return <SafeAreaView style={{ flex: 1, backgroundColor: t.bg, padding: 16, gap: 12 }}><ErrorPanel error={startErr} /><Button title="Close" variant="ghost" onPress={() => router.back()} /></SafeAreaView>;
   if (!ex || !s.sessionId) {
     const dayObj = plan.data?.days.find((d) => d.id === dayId);
-    const missing = !!plan.data && (!dayObj || dayObj.exercises.length === 0);
+    const missing = !isQuick && !!plan.data && (!dayObj || dayObj.exercises.length === 0);
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: t.bg, padding: 16, gap: 12 }}>
         {missing ? <EmptyState icon="alert-circle-outline" title={dayObj ? "Nothing to train" : "Workout not found"} hint={dayObj ? "This day has no exercises. Try regenerating your plan." : "This day is no longer in your plan."} action={{ label: 'Go back', onPress: () => router.back() }} />
@@ -187,10 +221,11 @@ export default function SessionScreen() {
         </View>
         <View style={{ paddingHorizontal: 16, paddingTop: 12 }}><ProgressBar value={prog.done} target={prog.total} height={6} /></View>
 
-        <GestureDetector gesture={swipe}>
+        <View style={{ flex: 1 }}>
           <Animated.View style={{ flex: 1 }}>
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: rest ? 250 : 60, gap: 16 }} showsVerticalScrollIndicator={false}>
               <Animated.View key={s.index} entering={FadeInRight.springify().damping(18)} exiting={FadeOutLeft.duration(150)} style={{ gap: 16 }}>
+                <GestureDetector gesture={swipe}>
                 <View style={{ gap: 8 }}>
                   <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                     <Chip label={ex.plan.exercise.muscle_group} selected />
@@ -201,13 +236,39 @@ export default function SessionScreen() {
                   {b ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Icon name="trophy-outline" size={15} color={t.fat} /><Text v="caption" color={t.fat}>Your best: {num(b.weight_kg)} kg{b.reps ? ` × ${b.reps}` : ''}</Text></View>
                     : <Text v="caption" faint>No previous record yet. Start light and focus on form.</Text>}
                 </View>
+                </GestureDetector>
+
+                {hist.data && (
+                  <Card>
+                    <View style={{ gap: 6 }}>
+                      {last ? (
+                        <Text v="caption" muted>Last time ({shortDate(last.date)}): {last.sets.map((x) => `${x.reps}${num(x.weight_kg) ? ` x ${Number(displayWeight(num(x.weight_kg), units).toFixed(1))}` : ''}`).join(' · ')} {num(last.sets[0]?.weight_kg) ? weightUnit(units) : ''}</Text>
+                      ) : <Text v="caption" muted>First time logging this exercise.</Text>}
+                      {hist.data.suggestion.weight_kg != null && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Icon name="trending-up" size={16} color={t.accent} />
+                          <Text v="bodyStrong" style={{ flex: 1, fontSize: 14 }}>Next: {Number(displayWeight(hist.data.suggestion.weight_kg, units).toFixed(1))} {weightUnit(units)}{hist.data.suggestion.reps ? ` × ${hist.data.suggestion.reps}` : ''}</Text>
+                          <PressableScale onPress={() => s.prefill(s.index, hist.data!.suggestion.weight_kg, hist.data!.suggestion.reps)} hapticStyle="select" accessibilityLabel="Use suggested weight"
+                            style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: t.accent + '26' }}><Text v="caption" accent>Use</Text></PressableScale>
+                        </View>
+                      )}
+                      <Text v="caption" faint>{hist.data.suggestion.reason}</Text>
+                      {hist.data.warmup.length > 0 && (
+                        <Text v="caption" muted>Warm-up: {hist.data.warmup.map((w) => `${Number(displayWeight(w.weight_kg, units).toFixed(1))} ${weightUnit(units)} × ${w.reps}`).join(' · ')}</Text>
+                      )}
+                    </View>
+                  </Card>
+                )}
 
                 {ex.skipped ? <Card><Text v="body" muted>Exercise skipped.</Text></Card> : (
                   <View style={{ gap: 10 }}>
                     {ex.sets.map((row, si) => (
-                      <SetRowView key={si} n={si + 1} row={row} units={units}
-                        onAdjust={(f, d) => s.adjust(s.index, si, f, d)} onTick={() => onTick(si)} />
+                      <SwipeRow key={si} deleteLabel="Remove" onDelete={() => s.removeSet(s.index, si)}>
+                        <SetRowView n={si + 1} row={row} units={units}
+                          onAdjust={(f, d) => s.adjust(s.index, si, f, d)} onTick={() => onTick(si)} onCopyPrev={si > 0 ? () => s.copyPrev(s.index, si) : undefined} />
+                      </SwipeRow>
                     ))}
+                    <Button title="Add set" variant="ghost" size="md" icon="add" onPress={() => s.addSet(s.index)} />
                   </View>
                 )}
 
@@ -220,12 +281,12 @@ export default function SessionScreen() {
 
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <Button title="Skip" variant="ghost" size="md" icon="play-skip-forward" style={{ flex: 1 }} onPress={() => Alert.alert('Skip this exercise?', 'Its remaining sets will be marked as skipped.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Skip', onPress: () => { s.skipExercise(s.index); if (s.index < exercises.length - 1) s.go(s.index + 1); } }])} />
-                  <Button title="Swap" variant="ghost" size="md" icon="swap-horizontal" style={{ flex: 1 }} onPress={() => setSwapOpen(true)} />
+                  <Button title="Swap" variant="ghost" size="md" icon="swap-horizontal" style={{ flex: 1 }} onPress={() => (isQuick ? Alert.alert('Swap not available', 'Quick workouts are one-offs. Skip an exercise instead, or build another quick workout for a different mix.') : setSwapOpen(true))} />
                 </View>
               </Animated.View>
             </ScrollView>
           </Animated.View>
-        </GestureDetector>
+        </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingBottom: 12 }}>
           <IconButton name="chevron-back" label="Previous exercise" onPress={() => go(-1)} />
@@ -233,7 +294,7 @@ export default function SessionScreen() {
           <IconButton name="chevron-forward" label="Next exercise" onPress={() => go(1)} />
         </View>
 
-        <Burst k={burst} />
+        <Confetti trigger={burst} />
         {burst > 0 && <Animated.View key={burst} entering={FadeInDown.springify()} exiting={FadeOutDown.delay(1600)} pointerEvents="none" style={{ position: 'absolute', top: 120, alignSelf: 'center' }}>
           <View style={{ flexDirection: 'row', gap: 8, backgroundColor: t.fat, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, alignItems: 'center' }}><Icon name="trophy" size={18} color="#07080A" /><Text v="bodyStrong" color="#07080A">New personal record!</Text></View>
         </Animated.View>}
@@ -247,6 +308,7 @@ export default function SessionScreen() {
             <View style={{ flex: 1, gap: 8 }}>
               <Text v="heading">Rest</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Button title="-15s" variant="secondary" size="md" style={{ flex: 1 }} onPress={() => setRest((r) => (r ? { end: Math.max(Date.now() + 1000, r.end - 15000), total: r.total } : r))} />
                 <Button title="+15s" variant="secondary" size="md" style={{ flex: 1 }} onPress={() => setRest((r) => (r ? { end: r.end + 15000, total: r.total + 15000 } : r))} />
                 <Button title="Skip" size="md" style={{ flex: 1 }} onPress={() => setRest(null)} />
               </View>

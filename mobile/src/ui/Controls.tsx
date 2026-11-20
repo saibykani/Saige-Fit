@@ -6,12 +6,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
-  Easing, FadeIn, FadeOut, SlideInDown, SlideOutDown, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, withSpring,
+  Easing, useReducedMotion, runOnJS, FadeIn, FadeOut, SlideInDown, SlideOutDown, interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, withSpring, withDelay,
 } from 'react-native-reanimated';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, radius, space, spring } from '@/theme/tokens';
 import { Text } from './Text';
 import { PressableScale, haptic } from './motion';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 export const Icon = ({ name, size = 22, color }: { name: IconName; size?: number; color?: string }) => {
@@ -188,12 +189,57 @@ export function MacroRow({ label, value, target, color, unit = 'g' }: { label: s
   );
 }
 
+/** Loading placeholder with a sweeping shimmer highlight (soft pulse when reduced motion is on). */
 export function Skeleton({ height = 20, width = '100%', radius: r = 10, style }: { height?: number; width?: number | string; radius?: number; style?: StyleProp<ViewStyle> }) {
   const t = useTheme();
-  const o = useSharedValue(0.4);
-  useEffect(() => { o.value = withRepeat(withSequence(withTiming(0.9, { duration: 800 }), withTiming(0.4, { duration: 800 })), -1); }, [o]);
-  const a = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[{ height, width: width as any, borderRadius: r, backgroundColor: t.surfaceAlt }, a, style]} />;
+  const reduced = useReducedMotion();
+  const [w, setW] = useState(0);
+  const k = useSharedValue(0);
+  useEffect(() => {
+    k.value = 0;
+    k.value = reduced ? withRepeat(withSequence(withTiming(1, { duration: 900 }), withTiming(0, { duration: 900 })), -1)
+      : withRepeat(withTiming(1, { duration: 1300, easing: Easing.inOut(Easing.quad) }), -1);
+  }, [reduced, k]);
+  const sweep = useAnimatedStyle(() => ({ transform: [{ translateX: -w + k.value * w * 2 }] }));
+  const pulse = useAnimatedStyle(() => ({ opacity: reduced ? 0.6 + k.value * 0.4 : 1 }));
+  return (
+    <Animated.View onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      style={[{ height, width: width as any, borderRadius: r, backgroundColor: t.surfaceAlt, overflow: 'hidden' }, pulse, style]}>
+      {!reduced && w > 0 && (
+        <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, width: w }, sweep]}>
+          <LinearGradient colors={['transparent', t.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)', 'transparent']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }} />
+        </Animated.View>
+      )}
+    </Animated.View>
+  );
+}
+
+/** Animated success check: ring ripple, pop-in disc and a bouncing tick. */
+export function SuccessCheck({ size = 96, color, style }: { size?: number; color?: string; style?: StyleProp<ViewStyle> }) {
+  const t = useTheme();
+  const reduced = useReducedMotion();
+  const c = color ?? t.accent;
+  const disc = useSharedValue(reduced ? 1 : 0);
+  const tick = useSharedValue(reduced ? 1 : 0);
+  const ring = useSharedValue(reduced ? 1 : 0);
+  useEffect(() => {
+    if (reduced) return;
+    disc.value = withSpring(1, { damping: 11, stiffness: 160 });
+    tick.value = withDelay(180, withSpring(1, { damping: 8, stiffness: 200 }));
+    ring.value = withDelay(120, withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) }));
+  }, [reduced, disc, tick, ring]);
+  const d = useAnimatedStyle(() => ({ transform: [{ scale: disc.value }] }));
+  const k = useAnimatedStyle(() => ({ opacity: Math.min(1, tick.value), transform: [{ scale: 0.3 + tick.value * 0.7 }, { rotate: `${(1 - tick.value) * -25}deg` }] }));
+  const r = useAnimatedStyle(() => ({ opacity: reduced ? 0 : 0.5 * (1 - ring.value), transform: [{ scale: 1 + ring.value * 0.7 }] }));
+  return (
+    <View accessibilityRole="image" accessibilityLabel="Success" style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}>
+      <Animated.View style={[{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 3, borderColor: c }, r]} />
+      <Animated.View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: c, alignItems: 'center', justifyContent: 'center' }, d]}>
+        <Animated.View style={k}><Ionicons name="checkmark" size={size * 0.56} color={t.onAccent} /></Animated.View>
+      </Animated.View>
+    </View>
+  );
 }
 
 export function EmptyState({ icon = 'sparkles-outline', title, hint, action }: { icon?: IconName; title: string; hint?: string; action?: { label: string; onPress: () => void } }) {
@@ -214,24 +260,45 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   return <EmptyState icon="cloud-offline-outline" title="Something went wrong" hint={message} action={onRetry ? { label: 'Try again', onPress: onRetry } : undefined} />;
 }
 
-/** Bottom sheet with blurred scrim. */
+/** Bottom sheet with blurred scrim. Drag the handle/title area down (or flick) to dismiss. */
 export function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title?: string; children: React.ReactNode }) {
   const t = useTheme();
+  const reduced = useReducedMotion();
+  const dy = useSharedValue(0);
+  useEffect(() => { if (visible) dy.value = 0; }, [visible, dy]);
+  const close = () => { haptic.light(); onClose(); };
+  const pan = Gesture.Pan()
+    .activeOffsetY([-6, 6]).failOffsetX([-30, 30])
+    .onUpdate((e) => { dy.value = Math.max(0, e.translationY); })
+    .onEnd((e) => {
+      if (dy.value > 110 || e.velocityY > 900) { dy.value = withTiming(700, { duration: 180 }, (f) => { if (f) runOnJS(close)(); }); }
+      else dy.value = reduced ? withTiming(0, { duration: 120 }) : withSpring(0, spring);
+    });
+  const drag = useAnimatedStyle(() => ({ transform: [{ translateY: dy.value }] }));
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={{ flex: 1 }}>
-        <Pressable style={{ flex: 1 }} onPress={onClose}>
-          <BlurView intensity={30} tint={t.mode as "dark" | "light"} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} />
-        </Pressable>
-      </Animated.View>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
-        <Animated.View entering={SlideInDown.springify().damping(20)} exiting={SlideOutDown.duration(200)}
-          style={{ backgroundColor: t.bgElevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space.xl, paddingBottom: 36, borderWidth: 1, borderColor: t.border, maxHeight: '88%' as any }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: t.border, marginBottom: 16 }} />
-          {title && <Text v="title" style={{ marginBottom: 16 }}>{title}</Text>}
-          {children}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)} style={{ flex: 1 }}>
+          <Pressable style={{ flex: 1 }} onPress={onClose}>
+            <BlurView intensity={30} tint={t.mode as "dark" | "light"} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} />
+          </Pressable>
         </Animated.View>
-      </KeyboardAvoidingView>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}>
+          <Animated.View entering={reduced ? FadeIn : SlideInDown.springify().damping(20)} exiting={reduced ? FadeOut : SlideOutDown.duration(200)}>
+            <Animated.View style={[{ backgroundColor: t.bgElevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space.xl, paddingTop: 0, paddingBottom: 36, borderWidth: 1, borderColor: t.border, maxHeight: '88%' as any }, drag]}>
+              <GestureDetector gesture={pan}>
+                <View collapsable={false}>
+                  <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 16 }}>
+                    <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: t.border }} />
+                  </View>
+                  {title && <Text v="title" style={{ marginBottom: 16 }}>{title}</Text>}
+                </View>
+              </GestureDetector>
+              {children}
+            </Animated.View>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

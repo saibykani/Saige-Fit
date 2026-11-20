@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
-  FadeInDown, FadeIn as RNFadeIn, FadeOut, Layout, useAnimatedStyle, useSharedValue, withSpring,
+  FadeInDown, FadeIn as RNFadeIn, FadeOut, Layout, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring,
 } from 'react-native-reanimated';
 import { spring } from '@/theme/tokens';
 
@@ -20,8 +20,9 @@ const APressable = Animated.createAnimatedComponent(Pressable);
 export function PressableScale({
   children, style, scaleTo = 0.96, hapticStyle = 'light', onPress, ...rest
 }: PressableProps & { style?: StyleProp<ViewStyle>; scaleTo?: number; hapticStyle?: 'light' | 'medium' | 'select' | 'none' }) {
+  const reduced = useReducedMotion();
   const s = useSharedValue(1);
-  const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  const a = useAnimatedStyle(() => ({ transform: [{ scale: reduced ? 1 : s.value }], opacity: reduced ? 1 - (1 - s.value) * 6 : 1 }));
   return (
     <APressable
       {...rest}
@@ -36,8 +37,9 @@ export function PressableScale({
 
 /** Staggered entrance: wrap list items with index for a cascading spring-in. */
 export function Reveal({ children, index = 0, style }: { children: React.ReactNode; index?: number; style?: StyleProp<ViewStyle> }) {
+  const reduced = useReducedMotion();
   return (
-    <Animated.View entering={FadeInDown.delay(index * 70).springify().damping(18)} layout={Layout.springify()} style={style}>
+    <Animated.View entering={reduced ? undefined : FadeInDown.delay(Math.min(index, 10) * 70).springify().damping(18)} layout={reduced ? undefined : Layout.springify()} style={style}>
       {children}
     </Animated.View>
   );

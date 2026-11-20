@@ -26,7 +26,8 @@ const PERMS = [
 
 /** The native module only exists in an Android dev/production build; everywhere else this returns null. */
 function hc(): HC | null {
-  if (Platform.OS !== 'android') return null;
+  // Health Connect needs Android 8 (API 26) or newer; the app itself supports Android 7.
+  if (Platform.OS !== 'android' || Number(Platform.Version) < 26) return null;
   try { return require('react-native-health-connect'); } catch { return null; }
 }
 

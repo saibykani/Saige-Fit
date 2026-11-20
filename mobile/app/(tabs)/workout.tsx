@@ -7,10 +7,11 @@ import { api } from '@/lib/api';
 import { useMe } from '@/lib/useMe';
 import { useTheme } from '@/theme/ThemeProvider';
 import {
-  AnimatedNumber, BarChart, Button, Card, EmptyState, Icon, PressableScale, Reveal, Ring, Screen, Section, Sheet, Skeleton, Text, haptic,
+  AnimatedNumber, BarChart, Button, Card, Chip, EmptyState, Icon, PressableScale, Reveal, Ring, Screen, Section, Sheet, Skeleton, Text, haptic,
 } from '@/ui';
 import { ErrorPanel, LockBadge, QueryState, errorInfo } from '@/features/paywall/gate';
-import { PLAN_KEY, Plan, PlanDay, estMinutes, prName, repsLabel, usePlan, usePrs, useStats, useToday } from '@/features/workout/api';
+import { PLAN_KEY, Plan, PlanDay, QUICK_MUSCLES, estMinutes, prName, repsLabel, useOverview, usePlan, usePrs, useStats, useToday } from '@/features/workout/api';
+import { useSession } from '@/features/workout/sessionStore';
 import { WEEKDAY_LONG, WEEKDAY_SHORT, num, shortDate, weekdayMon1 } from '@/features/settings/util';
 
 function DayExercises({ day }: { day: PlanDay }) {
@@ -39,8 +40,22 @@ export default function WorkoutTab() {
   const stats = useStats(8);
   const prs = usePrs();
   const [preview, setPreview] = useState<PlanDay | null>(null);
+  const overview = useOverview();
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [qMin, setQMin] = useState<15 | 30 | 45 | 60>(30);
+  const [qMuscle, setQMuscle] = useState<string>('full');
+  const quick = useMutation({
+    mutationFn: () => api<{ day: PlanDay; notes?: string[] }>('/v1/workouts/quick', { body: { minutes: qMin, ...(qMuscle !== 'full' ? { muscle: qMuscle } : {}) } }),
+    onSuccess: (r) => {
+      const st = useSession.getState();
+      st.reset(); st.setQuick(r.day);
+      setQuickOpen(false); haptic.success();
+      router.push({ pathname: '/workout/session', params: { quick: '1' } });
+    },
+    onError: (e) => Alert.alert('Could not build a quick workout', errorInfo(e).message),
+  });
 
-  const refetchAll = () => { plan.refetch(); today.refetch(); stats.refetch(); prs.refetch(); };
+  const refetchAll = () => { plan.refetch(); today.refetch(); stats.refetch(); prs.refetch(); overview.refetch(); };
   const generate = useMutation({
     mutationFn: () => api<{ plan: Plan }>('/v1/workouts/plan/generate', { body: {} }),
     onSuccess: () => { haptic.success(); qc.invalidateQueries({ queryKey: PLAN_KEY }); qc.invalidateQueries({ queryKey: ['workout-today'] }); },
@@ -120,9 +135,42 @@ export default function WorkoutTab() {
         }}
       </QueryState>
 
+      <Section title="Quick workout" index={2}>
+        <Card onPress={() => setQuickOpen(true)} glow>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.accent + '26', alignItems: 'center', justifyContent: 'center' }}><Icon name="flash" size={22} color={t.accent} /></View>
+            <View style={{ flex: 1 }}><Text v="heading">Short on time?</Text><Text v="caption" muted>Pick 15 to 60 minutes and a muscle. We build it for you.</Text></View>
+            <Icon name="chevron-forward" size={18} color={t.textFaint} />
+          </View>
+        </Card>
+      </Section>
+
+      <Section title="This week by muscle" index={3}>
+        <QueryState query={overview} skeleton={<Skeleton height={200} radius={24} />}
+          empty={(o) => (o.muscles.length ? null : <Card><Text v="body" muted>Finish a workout this week to see your sets per muscle group here.</Text></Card>)}>
+          {(o) => (
+            <Card>
+              <View style={{ flexDirection: 'row', gap: 20, marginBottom: 12 }}>
+                <View><AnimatedNumber value={o.sessions_this_week} suffix={o.planned_sessions ? ` / ${o.planned_sessions}` : ''} style={{ fontSize: 24 }} /><Text v="caption" muted>sessions</Text></View>
+                <View><AnimatedNumber value={o.streak.current} style={{ fontSize: 24 }} /><Text v="caption" muted>day streak</Text></View>
+                <View><AnimatedNumber value={o.muscles.reduce((a, m) => a + m.sets, 0)} style={{ fontSize: 24 }} /><Text v="caption" muted>sets</Text></View>
+              </View>
+              <BarChart data={o.muscles.map((m) => m.sets)} labels={o.muscles.map((m) => m.muscle_group.slice(0, 4))} height={150} highlightLast={false} />
+              <Text v="caption" faint style={{ marginTop: 6 }}>Sets completed per muscle group since Monday.</Text>
+              {o.last_pr && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                  <Icon name="trophy" size={16} color={t.fat} />
+                  <Text v="caption" muted style={{ flex: 1 }} numberOfLines={1}>Last PR: {o.last_pr.name ?? 'Exercise'} · {num(o.last_pr.weight_kg)} kg × {o.last_pr.reps} ({shortDate(o.last_pr.achieved_on)})</Text>
+                </View>
+              )}
+            </Card>
+          )}
+        </QueryState>
+      </Section>
+
       {plan.data && (
         <>
-          <Section title="Weekly stats" index={2}>
+          <Section title="Weekly stats" index={4}>
             <QueryState query={stats} skeleton={<Skeleton height={200} radius={24} />} feature="workout_analytics"
               empty={(s) => ((s.weeks ?? []).every((w) => !num(w.sessions)) && !num(s.sessions_this_week) ? (
                 <Card><EmptyState icon="stats-chart-outline" title="No sessions yet" hint="Finish your first workout to see frequency, volume and completion here." /></Card>) : null)}>
@@ -155,7 +203,7 @@ export default function WorkoutTab() {
             </QueryState>
           </Section>
 
-          <Section title="Personal records" index={3}>
+          <Section title="Personal records" index={5}>
             <QueryState query={prs} skeleton={<Skeleton height={90} radius={24} />}
               empty={(r) => (r.length ? null : <Card><Text v="body" muted>Your best lifts will show up here as you train. Complete sets with weight to set your first PR.</Text></Card>)}>
               {(r) => (
@@ -174,7 +222,7 @@ export default function WorkoutTab() {
             </QueryState>
           </Section>
 
-          <Section title="Explore" index={4}>
+          <Section title="Explore" index={6}>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <Card onPress={() => router.push('/exercises')} style={{ flex: 1 }}>
                 <View style={{ gap: 8 }}><Icon name="library-outline" size={24} color={t.accent} /><Text v="heading">Exercise library</Text><Text v="caption" muted>Form guides & alternatives</Text></View>
@@ -188,6 +236,25 @@ export default function WorkoutTab() {
         </>
       )}
       {generate.isError && <ErrorPanel error={generate.error} feature="personalized_workouts" />}
+
+      <Sheet visible={quickOpen} onClose={() => setQuickOpen(false)} title="Quick workout">
+        <View style={{ gap: 16 }}>
+          <View style={{ gap: 8 }}>
+            <Text v="label" muted>How long?</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([15, 30, 45, 60] as const).map((m) => <Chip key={m} label={`${m} min`} selected={qMin === m} onPress={() => setQMin(m)} />)}
+            </View>
+          </View>
+          <View style={{ gap: 8 }}>
+            <Text v="label" muted>Focus</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {QUICK_MUSCLES.map((m) => <Chip key={m} label={m === 'full' ? 'Full body' : m.charAt(0).toUpperCase() + m.slice(1)} selected={qMuscle === m} onPress={() => setQMuscle(m)} />)}
+            </View>
+          </View>
+          <Text v="caption" faint>Uses your equipment and avoids anything that conflicts with your reported limitations.</Text>
+          <Button title="Build and start" icon="flash" loading={quick.isPending} onPress={() => quick.mutate()} />
+        </View>
+      </Sheet>
 
       <Sheet visible={!!preview} onClose={() => setPreview(null)} title={preview ? `${WEEKDAY_LONG[preview.weekday - 1]} · ${preview.focus}` : ''}>
         {preview && (preview.is_rest ? <Text v="body" muted>Rest and recovery.</Text> : (

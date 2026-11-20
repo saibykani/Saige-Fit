@@ -14,10 +14,16 @@ interface SessionState {
   index: number;
   result: FinishResult | null;
   startPromise: Promise<void> | null;
+  pendingQuick: PlanDay | null; // a generated one-off workout waiting for the session screen
+  setQuick: (day: PlanDay | null) => void;
   begin: (day: PlanDay, resumeId?: string | null, bestWeights?: Record<string, number>) => Promise<void>;
   go: (i: number) => void;
   adjust: (ei: number, si: number, field: 'reps' | 'weight_kg', delta: number) => void;
   complete: (ei: number, si: number) => Promise<boolean>; // resolves true when the server flagged a PR
+  addSet: (ei: number) => void;
+  removeSet: (ei: number, si: number) => void;
+  copyPrev: (ei: number, si: number) => void;
+  prefill: (ei: number, weight: number | null, reps: number | null) => void;
   skipExercise: (ei: number) => void;
   swapExercise: (ei: number, ex: Exercise) => void;
   retryFailed: () => Promise<number>; // returns how many are still failing
@@ -50,7 +56,8 @@ export const useSession = create<SessionState>((set, get) => {
   }
 
   return {
-    day: null, sessionId: null, startedAt: 0, exercises: [], index: 0, result: null, startPromise: null,
+    day: null, sessionId: null, startedAt: 0, exercises: [], index: 0, result: null, startPromise: null, pendingQuick: null,
+    setQuick: (day) => set({ pendingQuick: day }),
 
     begin: async (day, resumeId, bestWeights) => {
       const exercises: ExState[] = day.exercises.map((pe) => ({
@@ -60,7 +67,7 @@ export const useSession = create<SessionState>((set, get) => {
       set({ day, exercises, index: 0, result: null, startedAt: Date.now(), sessionId: null });
       let id = resumeId ?? null;
       if (!id) {
-        const r = await api<any>('/v1/workouts/sessions', { body: { day_id: day.id, log_date: todayIso() } });
+        const r = await api<any>('/v1/workouts/sessions', { body: { day_id: day.id === 'quick' ? null : day.id, log_date: todayIso() } });
         id = r?.id ?? r?.session?.id ?? r?.session_id ?? null;
       }
       if (!id) throw new Error('Could not start the workout session.');
@@ -90,6 +97,45 @@ export const useSession = create<SessionState>((set, get) => {
       return post(ei, si);
     },
 
+    addSet: (ei) => set((s) => ({
+      exercises: s.exercises.map((e, i) => {
+        if (i !== ei) return e;
+        const last = [...e.sets].reverse().find((r) => !r.skipped) ?? e.sets[e.sets.length - 1];
+        return { ...e, skipped: false, sets: [...e.sets, blankSet(last?.reps ?? 10, last?.weight_kg ?? 0)] };
+      }),
+    })),
+
+    /** Removes a set. A logged set is overwritten on the server as skipped (completed=false) so it stops counting. */
+    removeSet: (ei, si) => {
+      const st = get();
+      const ex = st.exercises[ei]; const row = ex?.sets[si];
+      if (!ex || !row) return;
+      if (row.done && st.sessionId) {
+        api(`/v1/workouts/sessions/${st.sessionId}/sets`, { body: { exercise_id: ex.plan.exercise.id, set_number: si + 1, reps: 0, weight_kg: 0, completed: false, skipped: true } }).catch(() => {});
+      }
+      set((s) => ({
+        exercises: s.exercises.map((e, i) => {
+          if (i !== ei) return e;
+          const isLast = si === e.sets.length - 1 && e.sets.length > 1;
+          return { ...e, sets: isLast ? e.sets.slice(0, -1) : e.sets.map((r, j) => (j === si ? { ...r, done: false, skipped: true, is_pr: false } : r)) };
+        }),
+      }));
+    },
+
+    copyPrev: (ei, si) => set((s) => ({
+      exercises: s.exercises.map((e, i) => {
+        const prev = i === ei ? e.sets[si - 1] : undefined;
+        return !prev ? e : { ...e, sets: e.sets.map((r, j) => (j === si ? { ...r, reps: prev.reps, weight_kg: prev.weight_kg, done: false, is_pr: false } : r)) };
+      }),
+    })),
+
+    /** Fills untouched sets (nothing logged, weight still 0) from the server's suggestion. */
+    prefill: (ei, weight, reps) => set((s) => ({
+      exercises: s.exercises.map((e, i) => i !== ei ? e : {
+        ...e, sets: e.sets.map((r) => (r.done || r.skipped ? r : { ...r, weight_kg: weight ?? r.weight_kg, reps: reps && reps > 0 ? reps : r.reps })),
+      }),
+    })),
+
     skipExercise: (ei) => {
       set((s) => ({ exercises: s.exercises.map((e, i) => i !== ei ? e : { ...e, skipped: true, sets: e.sets.map((r) => (r.done ? r : { ...r, skipped: true })) }) }));
       const ex = get().exercises[ei];
@@ -117,7 +163,7 @@ export const useSession = create<SessionState>((set, get) => {
       return r;
     },
 
-    reset: () => set({ day: null, sessionId: null, exercises: [], index: 0, result: null, startedAt: 0 }),
+    reset: () => set({ pendingQuick: null, day: null, sessionId: null, exercises: [], index: 0, result: null, startedAt: 0 }),
   };
 });
 
@@ -126,3 +172,5 @@ export const sessionProgress = (ex: ExState[]) => {
   const done = ex.reduce((a, e) => a + e.sets.filter((s) => s.done || s.skipped).length, 0);
   return { total, done, pct: total ? done / total : 0, completed: ex.reduce((a, e) => a + e.sets.filter((s) => s.done).length, 0) };
 };
+
+export const sessionVolume = (ex: ExState[]) => Math.round(ex.reduce((a, e) => a + e.sets.reduce((b, r) => b + (r.done ? r.weight_kg * r.reps : 0), 0), 0) * 10) / 10;

@@ -3,7 +3,7 @@ import { Linking, Platform, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown, FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useTheme } from '@/theme/ThemeProvider';
 import { space } from '@/theme/tokens';
 import { Button, Text } from '@/ui';
@@ -19,6 +19,27 @@ const FEATURES: { icon: React.ComponentProps<typeof Ionicons>['name']; label: st
 // Web only: link to the Android APK. Set EXPO_PUBLIC_APK_URL to wherever the APK is hosted.
 const APK_URL = Platform.OS === 'web' ? process.env.EXPO_PUBLIC_APK_URL : undefined;
 
+/** Logo that springs in with a rotating overshoot and a breathing glow halo. */
+function IntroLogo() {
+  const t = useTheme();
+  const reduced = useReducedMotion();
+  const k = useSharedValue(reduced ? 1 : 0);
+  const glow = useSharedValue(0);
+  React.useEffect(() => {
+    if (reduced) return;
+    k.value = withSpring(1, { damping: 9, stiffness: 120 });
+    glow.value = withDelay(400, withRepeat(withSequence(withTiming(1, { duration: 1600 }), withTiming(0, { duration: 1600 })), -1));
+  }, [reduced, k, glow]);
+  const logo = useAnimatedStyle(() => ({ opacity: Math.min(1, k.value * 2), transform: [{ scale: 0.4 + 0.6 * k.value }, { rotate: `${(1 - k.value) * -20}deg` }] }));
+  const halo = useAnimatedStyle(() => ({ opacity: 0.15 + 0.3 * glow.value, transform: [{ scale: 1 + 0.5 * glow.value }] }));
+  return (
+    <View style={{ width: 48, height: 48 }}>
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: 48, height: 48, borderRadius: 16, backgroundColor: t.accent }, halo]} />
+      <Animated.View style={logo}><BrandMark size={48} /></Animated.View>
+    </View>
+  );
+}
+
 export default function Welcome() {
   const t = useTheme();
   const router = useRouter();
@@ -27,10 +48,10 @@ export default function Welcome() {
       <Orb size={380} color={t.accent} top={-120} right={-140} />
       <Orb size={260} color={t.accent2} top={260} left={-130} delay={800} />
       <SafeAreaView style={{ flex: 1, padding: space.xl, justifyContent: 'space-between' }}>
-        <Animated.View entering={ZoomIn.springify().damping(14)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
-          <BrandMark size={48} />
-          <Text v="label" muted>Saige Fit</Text>
-        </Animated.View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          <IntroLogo />
+          <Animated.View entering={FadeIn.delay(350).duration(500)}><Text v="label" muted>Saige Fit</Text></Animated.View>
+        </View>
 
         <View style={{ gap: 18 }}>
           <Animated.View entering={FadeInDown.delay(150).springify().damping(18)}>

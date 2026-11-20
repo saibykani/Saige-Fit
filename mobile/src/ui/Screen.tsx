@@ -8,6 +8,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { space } from '@/theme/tokens';
 import { Text } from './Text';
 import { IconButton } from './Controls';
+import { useTabBarInset } from './TabBar';
 
 /** Page shell: aurora gradient backdrop, parallax large title, pull-to-refresh, safe areas, bottom padding for the tab bar. */
 export function Screen({ title, subtitle, back, right, children, scroll = true, onRefresh, refreshing, tabBar = true, style, contentStyle }: {
@@ -16,6 +17,7 @@ export function Screen({ title, subtitle, back, right, children, scroll = true, 
 }) {
   const t = useTheme();
   const router = useRouter();
+  const inset = useTabBarInset();
   const y = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((e) => { y.value = e.contentOffset.y; });
   const titleStyle = useAnimatedStyle(() => ({
@@ -41,7 +43,7 @@ export function Screen({ title, subtitle, back, right, children, scroll = true, 
           <Animated.ScrollView onScroll={onScroll} scrollEventThrottle={16} showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={t.accent} colors={[t.accent]} /> : undefined}
-            contentContainerStyle={[{ paddingHorizontal: space.lg, paddingBottom: tabBar ? 130 : 40, gap: space.lg }, contentStyle]}>
+            contentContainerStyle={[{ paddingHorizontal: space.lg, paddingBottom: tabBar ? inset : 40, gap: space.lg }, contentStyle]}>
             {header}
             {children}
           </Animated.ScrollView>

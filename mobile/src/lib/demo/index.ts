@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { DemoError, type Route } from './types';
 import { store } from './store';
 import { nutritionRoutes } from './nutrition';
@@ -6,9 +7,10 @@ import { miscRoutes } from './misc';
 import { analyticsRoutes } from './analytics';
 
 /** Demo mode: the app runs fully on-device with sample data, no login and no backend. */
-// Real login switches on automatically as soon as a Supabase URL is configured for the build.
+// Demo mode is only for local browser previews (EXPO_PUBLIC_DEMO=1 with no Supabase URL).
+// Native apps (the APK) and any build with a Supabase URL always use the real backend and login.
 const HAS_SUPABASE = !!process.env.EXPO_PUBLIC_SUPABASE_URL;
-export const DEMO = (process.env.EXPO_PUBLIC_DEMO === '1' || process.env.EXPO_PUBLIC_PREVIEW === '1') && !HAS_SUPABASE;
+export const DEMO = Platform.OS === 'web' && (process.env.EXPO_PUBLIC_DEMO === '1' || process.env.EXPO_PUBLIC_PREVIEW === '1') && !HAS_SUPABASE;
 
 const routes: Route[] = [...miscRoutes, ...nutritionRoutes, ...trainingRoutes, ...analyticsRoutes];
 

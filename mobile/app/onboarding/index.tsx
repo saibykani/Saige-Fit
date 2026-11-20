@@ -3,14 +3,14 @@ import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import Animated, { FadeOut, SlideInLeft, SlideInRight, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, SlideInLeft, SlideInRight, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { api, errorMessage } from '@/lib/api';
 import { uploadImage } from '@/lib/upload';
 import { ME_KEY } from '@/lib/useMe';
 import { useAuth } from '@/store/auth';
 import { useTheme } from '@/theme/ThemeProvider';
 import { space, spring } from '@/theme/tokens';
-import { Button, IconButton, PressableScale, Text, haptic } from '@/ui';
+import { Button, Confetti, IconButton, PressableScale, SuccessCheck, Text, haptic } from '@/ui';
 import { TOTAL_STEPS, useOnboarding, validateStep } from '@/features/onboarding/store';
 import { StepBody, StepDiet, StepGoals, StepLifestyle, StepPersonal, StepWorkout } from '@/features/onboarding/Steps';
 import { StepSummary, useTargetsPreview } from '@/features/onboarding/StepSummary';
@@ -39,6 +39,7 @@ export default function Onboarding() {
   const preview = useTargetsPreview(step === TOTAL_STEPS - 1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(0);
   const last = step === TOTAL_STEPS - 1;
 
   const submit = async () => {
@@ -69,6 +70,8 @@ export default function Onboarding() {
         },
       });
       haptic.success();
+      setDone(1);
+      await new Promise((r) => setTimeout(r, 1500));
       await qc.invalidateQueries({ queryKey: ME_KEY });
       reset();
       router.replace('/(tabs)');
@@ -120,6 +123,14 @@ export default function Onboarding() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      {done > 0 ? (
+        <Animated.View entering={FadeIn.duration(250)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: t.bg + 'F2', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+          <SuccessCheck size={110} />
+          <Text v="title">You're all set!</Text>
+          <Text v="body" muted>Your plan is ready.</Text>
+          <Confetti trigger={done} />
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

@@ -47,6 +47,8 @@
     "android": {
       "package": "com.saigefit.app",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon-mono.png",
         "backgroundColor": "#07080A"
       },
       "permissions": [
@@ -62,13 +64,16 @@
     },
     "backgroundColor": "#07080A",
     "splash": {
-      "backgroundColor": "#07080A",
-      "resizeMode": "contain"
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07080A"
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "backgroundColor": "#07080A"
-    }
+      "backgroundColor": "#07080A",
+      "favicon": "./assets/favicon.png"
+    },
+    "icon": "./assets/icon.png"
   }
 }

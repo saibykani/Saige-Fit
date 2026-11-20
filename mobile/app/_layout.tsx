@@ -56,7 +56,7 @@ function Gate() {
   return (
     <>
       <StatusBar style={t.mode === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg }, animation: 'fade_from_bottom' }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg }, animation: 'slide_from_right', animationDuration: 260, gestureEnabled: true, fullScreenGestureEnabled: true }}>
         <Stack.Screen name="scan" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       </Stack>
       {loading || redirecting ? (

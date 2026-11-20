@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Alert, View } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { errorMessage } from '@/lib/api';
 import { useTheme } from '@/theme/ThemeProvider';
-import { AnimatedNumber, Button, Card, PressableScale, ProgressBar, Sheet, Text, haptic } from '@/ui';
+import { AnimatedNumber, Button, Card, PressableScale, ProgressBar, Sheet, SwipeRow, Text, haptic } from '@/ui';
 import { JournalMeal, MEAL_ICONS, MEAL_LABELS, MealItem, MealType, per100Of, scaleMacros, sumMacros } from '@/features/common/types';
 import { MacroPills } from '@/features/common/MacroPills';
 import { useDeleteMeal, usePhotoUrl, useUpdateItem } from './api';
@@ -79,11 +78,7 @@ function MealCard({ meal }: { meal: JournalMeal }) {
     ]);
   };
   return (
-    <Swipeable overshootRight={false} onSwipeableOpen={confirmDelete} renderRightActions={() => (
-      <View style={{ justifyContent: 'center', alignItems: 'center', width: 84, marginLeft: 8, borderRadius: 24, backgroundColor: t.danger + '33' }}>
-        <Ionicons name="trash" size={24} color={t.danger} />
-      </View>
-    )}>
+    <SwipeRow onDelete={() => del.mutate(meal.id)} deleteLabel="Delete meal">
       <PressableScale scaleTo={0.99} hapticStyle="none" onLongPress={confirmDelete} accessibilityLabel={`${meal.items.length} items, ${Math.round(total.kcal)} calories. Long press to delete.`}>
         <View style={{ backgroundColor: t.surface, borderRadius: 24, borderWidth: 1, borderColor: t.border, padding: 14, gap: 10, opacity: del.isPending ? 0.5 : 1 }}>
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
@@ -106,7 +101,7 @@ function MealCard({ meal }: { meal: JournalMeal }) {
         </View>
       </PressableScale>
       <ItemEditSheet meal={meal} item={edit} onClose={() => setEdit(null)} />
-    </Swipeable>
+    </SwipeRow>
   );
 }
 

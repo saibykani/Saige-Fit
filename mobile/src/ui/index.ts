@@ -6,3 +6,6 @@ export * from './Charts';
 export * from './Controls';
 export * from './Screen';
 export * from './TabBar';
+export * from './gestures';
+export * from './Confetti';
+export * from './refresh';

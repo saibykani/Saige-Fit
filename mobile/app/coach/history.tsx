@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Card, EmptyState, Icon, IconButton, Reveal, Screen, Skeleton, Text, haptic } from '@/ui';
+import { Card, EmptyState, Icon, IconButton, Reveal, Screen, Skeleton, SwipeRow, Text, haptic } from '@/ui';
 import { QueryState, errorInfo } from '@/features/paywall/gate';
 import { asArray } from '@/features/settings/util';
 
@@ -28,6 +28,7 @@ export default function CoachHistory() {
           <View style={{ gap: 10 }}>
             {rows.map((c, i) => (
               <Reveal key={c.id} index={Math.min(i, 8)}>
+                <SwipeRow onDelete={() => del.mutate(c.id)} deleteLabel="Delete">
                 <Card onPress={() => router.replace({ pathname: '/coach', params: { id: c.id } })}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: t.accent + '1F', alignItems: 'center', justifyContent: 'center' }}><Icon name="chatbubble-ellipses-outline" size={20} color={t.accent} /></View>
@@ -38,6 +39,7 @@ export default function CoachHistory() {
                     <IconButton name="trash-outline" label="Delete conversation" size={18} onPress={() => Alert.alert('Delete conversation?', 'This removes the messages permanently.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => del.mutate(c.id) }])} />
                   </View>
                 </Card>
+                </SwipeRow>
               </Reveal>
             ))}
           </View>

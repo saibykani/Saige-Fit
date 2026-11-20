@@ -28,7 +28,7 @@ export default function Recipes() {
     },
   });
   return (
-    <Screen title="Recipes" subtitle="Healthy, goal-friendly meals" back tabBar={false}>
+    <Screen title="Recipes" subtitle="Healthy, goal-friendly meals" back tabBar={false} onRefresh={() => list.refetch()} refreshing={list.isRefetching}>
       <Field value={text} onChangeText={setText} placeholder="Search recipes" autoCorrect={false} accessibilityLabel="Search recipes" />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 16 }}>
         {DIETS.map((d) => <Chip key={d} label={titleCase(d)} selected={diet === d} onPress={() => setDiet(diet === d ? null : d)} />)}

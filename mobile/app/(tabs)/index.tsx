@@ -11,6 +11,8 @@ import { greeting, prettyDay, todayISO } from '@/features/common/date';
 import { useDay } from '@/features/common/dayStore';
 import { useDashboard, useLogActivity, useQuickWater, useWorkoutToday } from '@/features/home/api';
 import { ActivityGrid, CalorieHero, HomeSkeleton, Insights, MacroRings, Schedule, SleepSheet } from '@/features/home/HomeParts';
+import { HomeInsightsCard } from '@/features/nutrition/parts';
+import { useNutritionInsights } from '@/features/nutrition/api';
 import { useSteps, useSyncSteps } from '@/features/home/usePedometer';
 import { useHealthConnect } from '@/features/health/useHealthConnect';
 
@@ -23,6 +25,7 @@ export default function Home() {
   const me = useMe();
   const dash = useDashboard(day);
   const workout = useWorkoutToday(day);
+  const nutrition = useNutritionInsights(day);
   const water = useQuickWater(day);
   const activity = useLogActivity(day);
   const [sleepOpen, setSleepOpen] = useState(false);
@@ -67,6 +70,7 @@ export default function Home() {
         <>
           <CalorieHero d={dash.data} />
           <MacroRings d={dash.data} />
+          <HomeInsightsCard d={nutrition.data} loading={nutrition.isLoading} />
           <Section title="Activity" index={2}>
             <ActivityGrid d={dash.data} steps={shownSteps} stepStatus={pedo.status}
               onAddWater={() => { water.mutate(250, { onSuccess: () => haptic.success() }); }} waterBusy={water.isPending}

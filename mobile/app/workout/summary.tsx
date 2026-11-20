@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeProvider';
 import { AnimatedNumber, Button, Card, EmptyState, Icon, Reveal, Ring, Screen, Text, haptic } from '@/ui';
-import { Burst } from '@/features/workout/Burst';
-import { sessionProgress, useSession } from '@/features/workout/sessionStore';
+import { Confetti } from '@/ui/Confetti';
+import { sessionProgress, sessionVolume, useSession } from '@/features/workout/sessionStore';
 import { num } from '@/features/settings/util';
 
 export default function Summary() {
@@ -17,7 +17,8 @@ export default function Summary() {
   const reset = useSession((s) => s.reset);
   const prs: any[] = result?.new_prs ?? [];
 
-  useEffect(() => { if (result) haptic.success(); }, [result]);
+  const [pop, setPop] = useState(0);
+  useEffect(() => { if (result) { haptic.success(); setPop(1); } }, [result]);
   const done = () => { reset(); router.replace('/(tabs)/workout'); };
 
   if (!result) {
@@ -25,10 +26,12 @@ export default function Summary() {
   }
   const { completed, total } = sessionProgress(exercises);
   const completion = num(result.completion_pct);
+  const volume = Math.round(num(result.total_volume_kg ?? sessionVolume(exercises)));
   const prLabel = (p: any) => (typeof p === 'string' ? p : p?.exercise_name ?? p?.name ?? 'Personal record') + (p?.weight_kg ? ` · ${p.weight_kg} kg${p.reps ? ` × ${p.reps}` : ''}` : '');
 
   return (
     <Screen title="Workout complete" subtitle={day?.focus} tabBar={false}>
+      <Confetti trigger={pop} />
       <Reveal index={0}>
         <LinearGradient colors={[t.accent + '40', t.accent2 + '12']} style={{ borderRadius: 28, padding: 24, alignItems: 'center', gap: 12, borderWidth: 1, borderColor: t.accent + '55', overflow: 'hidden' }}>
           <Ring value={completion} target={100} size={160} stroke={14} delay={300}>
@@ -36,17 +39,20 @@ export default function Summary() {
             <Text v="caption" muted>completed</Text>
           </Ring>
           <Text v="body" muted>{completed} of {total} sets done</Text>
-          {prs.length > 0 && <Burst k={1} size={110} />}
         </LinearGradient>
       </Reveal>
 
       <Reveal index={1}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Card style={{ flex: 1 }}><AnimatedNumber value={num(result.duration_min)} suffix=" min" style={{ fontSize: 26 }} /><Text v="caption" muted>Duration</Text></Card>
+          <Card style={{ flex: 1 }}><AnimatedNumber value={volume} suffix=" kg" style={{ fontSize: 26 }} /><Text v="caption" muted>Total volume</Text></Card>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
           <Card style={{ flex: 1 }}>
             {result.kcal_burned != null ? <AnimatedNumber value={num(result.kcal_burned)} prefix="≈ " style={{ fontSize: 26 }} /> : <Text v="number">-</Text>}
             <Text v="caption" muted>kcal (estimate)</Text>
           </Card>
+          <Card style={{ flex: 1 }}><AnimatedNumber value={prs.length} style={{ fontSize: 26 }} /><Text v="caption" muted>New PRs</Text></Card>
         </View>
       </Reveal>
 
