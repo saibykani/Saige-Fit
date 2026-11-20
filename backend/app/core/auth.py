@@ -32,7 +32,12 @@ def _decode(token: str, settings: Settings) -> dict:
             raise jwt.InvalidTokenError("shared secret not configured")  # never verify against an empty key
         return jwt.decode(token, settings.supabase_jwt_secret, algorithms=["HS256"], audience="authenticated", options=opts)
     if alg in ASYMMETRIC_ALGS and settings.supabase_url:
-        key = _jwks_client(f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json").get_signing_key_from_jwt(token).key
+        url = f"{settings.supabase_url.strip().rstrip('/')}/auth/v1/.well-known/jwks.json"
+        try:
+            key = _jwks_client(url).get_signing_key_from_jwt(token).key
+        except jwt.PyJWKClientError as e:
+            # Public address only: shows which project the backend is configured for.
+            raise jwt.PyJWKClientError(f"{e} [asked: {url}]") from e
         return jwt.decode(token, key, algorithms=[alg], audience="authenticated", options=opts)
     raise jwt.InvalidTokenError("unsupported token algorithm")
 
@@ -46,7 +51,7 @@ class CurrentUser:
 
 def _reason(e: Exception) -> str:
     """Short, non-secret description of why verification failed (class name + start of message), header-safe."""
-    return f"{type(e).__name__}: {' '.join(str(e).split())[:90]}".encode("ascii", "replace").decode()
+    return f"{type(e).__name__}: {' '.join(str(e).split())[:200]}".encode("ascii", "replace").decode()
 
 
 def current_user(
