@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,9 @@ const FEATURES: { icon: React.ComponentProps<typeof Ionicons>['name']; label: st
   { icon: 'restaurant', label: 'Diet plans' },
   { icon: 'trending-up', label: 'Progress' },
 ];
+
+// Web only: link to the Android APK. Set EXPO_PUBLIC_APK_URL to wherever the APK is hosted.
+const APK_URL = Platform.OS === 'web' ? process.env.EXPO_PUBLIC_APK_URL : undefined;
 
 export default function Welcome() {
   const t = useTheme();
@@ -55,6 +58,7 @@ export default function Welcome() {
         <Animated.View entering={FadeInDown.delay(700).springify().damping(18)} style={{ gap: 12 }}>
           <Button title="Get started" icon="arrow-forward" onPress={() => router.push('/(auth)/register')} />
           <Button title="I have an account" variant="ghost" onPress={() => router.push('/(auth)/login')} />
+          {APK_URL ? <Button title="Download Android app" variant="ghost" icon="logo-android" onPress={() => Linking.openURL(APK_URL)} /> : null}
           <Text v="caption" faint style={{ textAlign: 'center' }}>Estimates are for guidance only and are not medical advice.</Text>
         </Animated.View>
       </SafeAreaView>

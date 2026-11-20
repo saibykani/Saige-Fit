@@ -17,7 +17,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } });
 
 /** Routes users to the right place: signed out -> welcome, not onboarded -> onboarding, else tabs. */
-// Preview mode (EXPO_PUBLIC_PREVIEW=1): skip the login gate to browse screens. Data calls still need a real session.
+// No-login mode (EXPO_PUBLIC_PREVIEW=1): treat everyone as signed in. The backend must have GUEST_USER_ID set to serve data.
 const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === '1';
 
 function Gate() {
@@ -29,17 +29,18 @@ function Gate() {
 
   useEffect(() => init(), [init]);
 
-  const loading = !ready || (!PREVIEW && !!session && me.isLoading);
+  const signedIn = PREVIEW || !!session;
+  const loading = (!PREVIEW && !ready) || (signedIn && me.isLoading);
   useEffect(() => {
-    if (loading || PREVIEW) return;
+    if (loading) return;
     const root = segments[0] as string | undefined;
     const inAuth = root === '(auth)';
     const inOnboarding = root === 'onboarding';
-    if (!session) { if (!inAuth) router.replace('/(auth)/welcome'); return; }
+    if (!signedIn) { if (!inAuth) router.replace('/(auth)/welcome'); return; }
     if (me.isError) return; // keep the user where they are; screens show their own error state
     if (me.data && !me.data.onboarded) { if (!inOnboarding) router.replace('/onboarding'); return; }
     if (me.data?.onboarded && (inAuth || inOnboarding)) router.replace('/(tabs)');
-  }, [loading, session, me.data, me.isError, segments, router]);
+  }, [loading, signedIn, me.data, me.isError, segments, router]);
 
   if (loading) {
     return <View style={{ flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={t.accent} size="large" /></View>;

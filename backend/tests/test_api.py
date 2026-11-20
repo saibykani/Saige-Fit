@@ -62,3 +62,19 @@ def test_targets_happy_path():
 def test_targets_validation(patch):
     r = client.post("/v1/profile/targets", json={**BODY, **patch}, headers=auth())
     assert r.status_code == 422
+
+
+def test_guest_mode_off_by_default_and_on_when_configured():
+    from fastapi.testclient import TestClient
+    from app.core.config import Settings, get_settings
+    from app.main import app
+    client = TestClient(app)
+    old = app.dependency_overrides.copy()
+    try:
+        app.dependency_overrides.clear()
+        app.dependency_overrides[get_settings] = lambda: Settings(supabase_jwt_secret="s" * 32)
+        assert client.get("/v1/me").status_code == 401
+        app.dependency_overrides[get_settings] = lambda: Settings(supabase_jwt_secret="s" * 32, guest_user_id="00000000-0000-0000-0000-000000000001")
+        assert client.get("/v1/me").status_code != 401
+    finally:
+        app.dependency_overrides.clear(); app.dependency_overrides.update(old)

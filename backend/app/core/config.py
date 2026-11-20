@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     rate_limit_ai: str = "10/minute"
     max_upload_mb: int = 8
     allow_dev_tier_switch: bool = False
+    # Optional no-login mode: when set, requests without a token act as this Supabase user id.
+    # Everyone without a login then shares that one account's data. Leave empty in real production.
+    guest_user_id: str = ""
 
     @property
     def is_prod(self) -> bool:
