@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system';
 import * as ImageManipulatorFallback from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from './supabase';
+import { DEMO } from './demo';
 
 export type Bucket = 'food-photos' | 'progress-photos' | 'avatars';
 
@@ -14,6 +15,7 @@ function uuid() {
 
 /** Uploads a local image (file:// uri) to `<user_id>/<uuid>.jpg` in the private bucket. Returns the storage path. */
 export async function uploadImage(bucket: Bucket, uri: string): Promise<string> {
+  if (DEMO) return uri; // demo mode keeps the picked image's local URI instead of uploading
   const { data: s } = await supabase.auth.getSession();
   const uid = s.session?.user.id;
   if (!uid) throw new Error('Not signed in');
@@ -26,6 +28,7 @@ export async function uploadImage(bucket: Bucket, uri: string): Promise<string> 
 
 /** Short-lived URL for displaying a private image. */
 export async function signedUrl(bucket: Bucket, path: string, seconds = 3600): Promise<string | null> {
+  if (DEMO) return path;
   const { data } = await supabase.storage.from(bucket).createSignedUrl(path, seconds);
   return data?.signedUrl ?? null;
 }
