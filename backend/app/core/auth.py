@@ -65,7 +65,8 @@ def current_user(
         claims = _decode(creds.credentials, settings)
     except jwt.PyJWTError as e:
         # The error class name (never the token) helps diagnose setup problems such as an unreachable key set.
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token", headers={"X-Auth-Reason": type(e).__name__})
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token", headers={"X-Auth-Reason": f"{type(e).__name__}: {str(e)[:90]}".replace("
+", " ")})
     except Exception as e:  # e.g. a missing crypto library: report as 401 instead of a 500 crash
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token", headers={"X-Auth-Reason": type(e).__name__})
     return CurrentUser(id=claims["sub"], email=claims.get("email"), token=creds.credentials)
