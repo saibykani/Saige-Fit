@@ -52,3 +52,11 @@ def test_hs256_with_empty_secret_is_never_accepted(client):
     app.dependency_overrides[get_settings] = lambda: Settings(supabase_url="https://x.supabase.co", supabase_jwt_secret="")
     forged = jwt.encode({"sub": "attacker", "aud": "authenticated", "exp": int(time.time()) + 600}, "", algorithm="HS256")
     assert client.get("/v1/me", headers={"Authorization": f"Bearer {forged}"}).status_code == 401
+
+
+def test_saige_prefixed_env_names_win_over_platform_injected_ones(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://wrong-project.supabase.co")
+    monkeypatch.setenv("SAIGE_SUPABASE_URL", "https://right-project.supabase.co")
+    assert Settings().supabase_url == "https://right-project.supabase.co"
+    monkeypatch.delenv("SAIGE_SUPABASE_URL")
+    assert Settings().supabase_url == "https://wrong-project.supabase.co"

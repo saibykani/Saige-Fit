@@ -1,16 +1,19 @@
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
     environment: str = "development"
-    supabase_url: str = ""
-    supabase_anon_key: str = ""
+    # SAIGE_* names win when set, so a platform integration that injects its own SUPABASE_* values
+    # (for a different project) cannot override the project this app is meant to use.
+    supabase_url: str = Field("", validation_alias=AliasChoices("SAIGE_SUPABASE_URL", "SUPABASE_URL"))
+    supabase_anon_key: str = Field("", validation_alias=AliasChoices("SAIGE_SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY"))
     supabase_jwt_secret: str = ""
-    supabase_service_role_key: str = ""
+    supabase_service_role_key: str = Field("", validation_alias=AliasChoices("SAIGE_SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"))
     anthropic_api_key: str = ""
     vision_model: str = "claude-sonnet-5-5"
     chat_model: str = "claude-sonnet-5-5"
