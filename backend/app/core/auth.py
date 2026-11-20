@@ -44,6 +44,11 @@ class CurrentUser:
     token: str = ""
 
 
+def _reason(e: Exception) -> str:
+    """Short, non-secret description of why verification failed (class name + start of message), header-safe."""
+    return f"{type(e).__name__}: {' '.join(str(e).split())[:90]}".encode("ascii", "replace").decode()
+
+
 def current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
     settings: Settings = Depends(get_settings),
@@ -65,8 +70,7 @@ def current_user(
         claims = _decode(creds.credentials, settings)
     except jwt.PyJWTError as e:
         # The error class name (never the token) helps diagnose setup problems such as an unreachable key set.
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token", headers={"X-Auth-Reason": f"{type(e).__name__}: {str(e)[:90]}".replace("
-", " ")})
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token", headers={"X-Auth-Reason": _reason(e)})
     except Exception as e:  # e.g. a missing crypto library: report as 401 instead of a 500 crash
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token", headers={"X-Auth-Reason": type(e).__name__})
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token", headers={"X-Auth-Reason": _reason(e)})
     return CurrentUser(id=claims["sub"], email=claims.get("email"), token=creds.credentials)
