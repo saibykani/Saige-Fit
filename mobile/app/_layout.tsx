@@ -12,6 +12,10 @@ import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { useAuth } from '@/store/auth';
 import { ApkPrompt } from '@/features/download/ApkPrompt';
 import { useMe } from '@/lib/useMe';
+import { Button, Text } from '@/ui';
+
+// Without this the navigator can fall back to the first declared screen (the camera) after a remount.
+export const unstable_settings = { initialRouteName: '(tabs)' };
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -26,7 +30,7 @@ function Gate() {
   const t = useTheme();
   const router = useRouter();
   const segments = useSegments();
-  const { session, ready, init } = useAuth();
+  const { session, ready, init, signOut } = useAuth();
   const me = useMe();
 
   useEffect(() => init(), [init]);
@@ -44,15 +48,32 @@ function Gate() {
     if (me.data?.onboarded && (inAuth || inOnboarding)) router.replace('/(tabs)');
   }, [loading, signedIn, me.data, me.isError, segments, router]);
 
-  if (loading) {
-    return <View style={{ flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={t.accent} size="large" /></View>;
-  }
+  // Hide the tabs while a redirect (to welcome or onboarding) is pending so they never flash.
+  const root0 = segments[0] as string | undefined;
+  const redirecting = !loading && ((!signedIn && root0 !== '(auth)') || (signedIn && !me.isError && !!me.data && !me.data.onboarded && root0 !== 'onboarding'));
+  // Signed in, but the server could not load the profile (network, or the backend rejected the login).
+  const serverProblem = signedIn && !DEMO && me.isError && !loading;
   return (
     <>
       <StatusBar style={t.mode === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg }, animation: 'fade_from_bottom' }}>
         <Stack.Screen name="scan" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       </Stack>
+      {loading || redirecting ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={t.accent} size="large" />
+        </View>
+      ) : null}
+      {serverProblem ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14 }}>
+          <Text v="title" style={{ textAlign: 'center' }}>Can't load your account</Text>
+          <Text v="body" muted style={{ textAlign: 'center', maxWidth: 340 }}>You are signed in, but the server did not respond correctly. Check your connection and try again.</Text>
+          <View style={{ width: '100%', maxWidth: 340, gap: 10 }}>
+            <Button title="Try again" onPress={() => me.refetch()} />
+            <Button title="Sign out" variant="ghost" onPress={() => signOut()} />
+          </View>
+        </View>
+      ) : null}
       <ApkPrompt />
     </>
   );
