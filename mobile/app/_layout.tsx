@@ -10,6 +10,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { useAuth } from '@/store/auth';
+import { ApkPrompt } from '@/features/download/ApkPrompt';
 import { useMe } from '@/lib/useMe';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -52,6 +53,7 @@ function Gate() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg }, animation: 'fade_from_bottom' }}>
         <Stack.Screen name="scan" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       </Stack>
+      <ApkPrompt />
     </>
   );
 }
