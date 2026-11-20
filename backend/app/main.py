@@ -38,7 +38,8 @@ async def unhandled(_: Request, exc: Exception):
 
 @app.get("/healthz")
 def healthz():
-    return {"status": "ok", "env": settings.environment}
+    # "auth" shows which login verification is active (no secrets): jwks = Supabase public-key verification.
+    return {"status": "ok", "env": settings.environment, "auth": "jwks" if settings.supabase_url else "shared-secret-only"}
 
 
 # every module in app/routers exposing `router` is registered automatically
