@@ -17,6 +17,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 30_000 } } });
 
 /** Routes users to the right place: signed out -> welcome, not onboarded -> onboarding, else tabs. */
+// Preview mode (EXPO_PUBLIC_PREVIEW=1): skip the login gate to browse screens. Data calls still need a real session.
+const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === '1';
+
 function Gate() {
   const t = useTheme();
   const router = useRouter();
@@ -26,9 +29,9 @@ function Gate() {
 
   useEffect(() => init(), [init]);
 
-  const loading = !ready || (!!session && me.isLoading);
+  const loading = !ready || (!PREVIEW && !!session && me.isLoading);
   useEffect(() => {
-    if (loading) return;
+    if (loading || PREVIEW) return;
     const root = segments[0] as string | undefined;
     const inAuth = root === '(auth)';
     const inOnboarding = root === 'onboarding';
