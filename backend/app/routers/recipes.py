@@ -25,15 +25,15 @@ def summarize(r: dict, ings: list[dict], foods: dict[str, de.Food]) -> dict:
     fs = [foods[str(i["food_id"])] for i in mine if str(i["food_id"]) in foods]
     tot = sum_nutrients([foods[str(i["food_id"])].nutrients(float(i["grams"])) for i in mine if str(i["food_id"]) in foods])
     sv = max(1, int(r.get("servings") or 1))
-    diets = set(de.DIET_TAGS_ALL)
+    diets: set[str] | None = None  # a recipe is only as permissive as its most restrictive ingredient
     allergens: set[str] = set()
     for f in fs:
-        diets &= set(f.diet_tags)
+        diets = set(f.diet_tags) if diets is None else diets & set(f.diet_tags)
         allergens |= f.allergens
     per = {k: round(float(getattr(tot, k) or 0) / sv, 1) for k in ("kcal", "protein_g", "carbs_g", "fat_g", "fiber_g")}
     return {"id": r["id"], "name": r["name"], "cuisine": r.get("cuisine"), "description": r.get("description"), "servings": sv,
             "prep_minutes": r.get("prep_minutes"), "cook_minutes": r.get("cook_minutes"), "tags": r.get("tags") or [],
-            "diet_tags": sorted(diets), "allergens": sorted(allergens), "nutrition_per_serving": per, "is_estimate": True}
+            "diet_tags": sorted(diets or ()), "allergens": sorted(allergens), "nutrition_per_serving": per, "is_estimate": True}
 
 
 async def _favorites(db: Rest, uid: str) -> set[str]:

@@ -100,8 +100,10 @@ export default function ProfileTab() {
                 <ListRow icon="notifications-outline" title="Reminders" subtitle="Meals, water, workouts and reports" onPress={() => router.push('/settings/notifications')} />
                 <ListRow icon="sparkles-outline" title="Subscription" subtitle={`Current plan: ${tier[0].toUpperCase() + tier.slice(1)}`} onPress={() => router.push('/paywall')} />
                 <ListRow icon="analytics-outline" title="Analytics & reports" onPress={() => router.push('/analytics')} />
+                <ListRow icon="trophy-outline" title="Achievements" subtitle="Streaks and badges" onPress={() => router.push('/achievements' as any)} />
                 <ListRow icon="sparkles" title="AI Coach" subtitle="Ask about meals, workouts and progress" onPress={() => router.push('/coach')} />
                 <ListRow icon="calendar-outline" title="Meal plan & shopping list" onPress={() => router.push('/planner')} />
+                <ListRow icon="timer-outline" title="Fasting timer" subtitle="Intermittent fasting windows and history" onPress={() => router.push('/fasting')} />
                 <ListRow icon="book-outline" title="Recipes" onPress={() => router.push('/recipes')} />
               </Card>
             </Section>

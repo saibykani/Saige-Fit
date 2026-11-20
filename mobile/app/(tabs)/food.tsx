@@ -9,6 +9,7 @@ import { useDay } from '@/features/common/dayStore';
 import { MEAL_ORDER, MealType } from '@/features/common/types';
 import { useJournal } from '@/features/food/api';
 import { DayTotals, MealSection, ScanCta } from '@/features/food/JournalParts';
+import { NextMealCard } from '@/features/food/NextMealCard';
 import { useDashboard } from '@/features/home/api';
 
 const ALWAYS: MealType[] = ['breakfast', 'lunch', 'dinner'];
@@ -27,6 +28,7 @@ export default function Food() {
       right={<IconButton name="search" label="Search and add food" onPress={() => add()} />}>
       <ScanCta onPress={() => router.push('/scan')} />
       <DateStrip value={day} onChange={setDay} />
+      <NextMealCard day={day} />
       {journal.isLoading ? (
         <View style={{ gap: 14 }}><Skeleton height={140} radius={24} /><Skeleton height={110} radius={24} /><Skeleton height={110} radius={24} /></View>
       ) : journal.isError ? (

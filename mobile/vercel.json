@@ -2,5 +2,6 @@
   "buildCommand": "npx expo export -p web --output-dir dist",
   "outputDirectory": "dist",
   "installCommand": "npm install",
+  "build": { "env": { "EXPO_PUBLIC_PREVIEW": "1" } },
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
