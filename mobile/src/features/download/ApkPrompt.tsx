@@ -18,6 +18,7 @@ export function ApkPrompt() {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     if (store()?.getItem(KEY)) return;
+    if (typeof window !== 'undefined' && window.innerWidth >= 900) return; // desktop web: no Android prompt
     let alive = true;
     // The single-page site answers unknown paths with HTML, so only show the dialog for a real APK file.
     fetch(APK_URL, { method: 'HEAD' }).then((r) => {
