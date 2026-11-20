@@ -68,4 +68,5 @@ Animations, layout and permission flows have not been visually verified.
 - Billing is architecture-only: `/v1/subscription/verify` returns 501 until Google Play / App Store credentials exist. Prices are not hardcoded.
 - Food values are approximate reference data; import licensed IFCT/USDA data before launch.
 - Exercise media are placeholders (no licensed videos); push notifications are scheduled locally.
-- APK: not built yet; see docs/BUILD_APK.md (needs Node 20/22).
+- APK: a debug-signed release APK (arm64) builds with Gradle (see docs/BUILD_APK.md); it has placeholder Supabase/API values until `mobile/.env` is set, and it has not been run on a device.
+- Web: `npx expo export -p web` produces a static site (Vercel config in `mobile/vercel.json`, backend deploys from `backend/`). Welcome, login and register screens were checked in headless Chromium; other screens, camera scan and the step counter were not. On web the session is kept in localStorage.
