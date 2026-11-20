@@ -1,4 +1,5 @@
 import React from 'react';
+import { DEMO } from '@/lib/demo';
 import { Alert, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -60,7 +61,7 @@ export default function ProfileTab() {
                   <Avatar name={name} path={me.data?.user.avatar_path} />
                   <View style={{ flex: 1, gap: 4 }}>
                     <Text v="title" numberOfLines={1}>{name}</Text>
-                    <Text v="caption" muted numberOfLines={1}>{me.data?.user.email}</Text>
+                    <Text v="caption" muted numberOfLines={1}>{DEMO ? 'Guest (demo mode)' : me.data?.user.email}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                       <Text v="caption" accent>{goalLabel(me.data?.goal)}</Text>
                       <LockBadge label={tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : 'Premium'} />
@@ -127,7 +128,7 @@ export default function ProfileTab() {
               <Card padded={false} style={{ paddingHorizontal: 16 }}>
                 <ListRow icon="shield-checkmark-outline" title="Privacy & data" subtitle="AI consent, export, delete account" onPress={() => router.push('/settings/privacy')} />
                 <ListRow icon="information-circle-outline" title="Help & disclaimers" onPress={() => router.push('/settings/about')} />
-                <ListRow icon="log-out-outline" title="Sign out" danger onPress={confirmSignOut} />
+                {!DEMO && <ListRow icon="log-out-outline" title="Sign out" danger onPress={confirmSignOut} />}
               </Card>
             </Section>
           </>

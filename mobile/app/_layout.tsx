@@ -18,6 +18,7 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, sta
 
 /** Routes users to the right place: signed out -> welcome, not onboarded -> onboarding, else tabs. */
 // No-login mode (EXPO_PUBLIC_PREVIEW=1): treat everyone as signed in. The backend must have GUEST_USER_ID set to serve data.
+import { DEMO } from '@/lib/demo';
 const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === '1';
 
 function Gate() {
@@ -29,8 +30,8 @@ function Gate() {
 
   useEffect(() => init(), [init]);
 
-  const signedIn = PREVIEW || !!session;
-  const loading = (!PREVIEW && !ready) || (signedIn && me.isLoading);
+  const signedIn = PREVIEW || DEMO || !!session;
+  const loading = (!PREVIEW && !DEMO && !ready) || (signedIn && me.isLoading);
   useEffect(() => {
     if (loading) return;
     const root = segments[0] as string | undefined;

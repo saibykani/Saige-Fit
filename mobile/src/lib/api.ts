@@ -1,5 +1,12 @@
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
+import { DEMO, demoRequest } from './demo';
+import { DemoError } from './demo/types';
+
+async function demo<T>(method: string, path: string, body?: unknown): Promise<T> {
+  try { return await demoRequest<T>(method, path, body); }
+  catch (e) { if (e instanceof DemoError) throw new ApiError(e.status, e.message); throw e; }
+}
 
 const BASE = (Constants.expoConfig?.extra?.apiUrl as string | undefined) ?? process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -30,6 +37,7 @@ async function send<T>(path: string, init: RequestInit): Promise<T> {
 }
 
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  if (DEMO) return demo<T>(init.method ?? (init.body !== undefined ? 'POST' : 'GET'), path, init.body);
   return send<T>(path, {
     method: init.method ?? (init.body !== undefined ? 'POST' : 'GET'),
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
@@ -39,6 +47,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
 
 /** Multipart upload of a single local file (React Native FormData file part). */
 export async function apiUploadFile<T>(path: string, field: string, file: { uri: string; name: string; type: string }): Promise<T> {
+  if (DEMO) return demo<T>('POST', path, { demoUpload: true, name: file.name });
   const form = new FormData();
   // React Native's FormData accepts {uri,name,type} file descriptors, which the DOM typings don't model.
   form.append(field, file as unknown as Blob);
