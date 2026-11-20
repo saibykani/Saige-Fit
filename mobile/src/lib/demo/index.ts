@@ -6,7 +6,9 @@ import { miscRoutes } from './misc';
 import { analyticsRoutes } from './analytics';
 
 /** Demo mode: the app runs fully on-device with sample data, no login and no backend. */
-export const DEMO = process.env.EXPO_PUBLIC_DEMO === '1' || process.env.EXPO_PUBLIC_PREVIEW === '1';
+// Real login switches on automatically as soon as a Supabase URL is configured for the build.
+const HAS_SUPABASE = !!process.env.EXPO_PUBLIC_SUPABASE_URL;
+export const DEMO = (process.env.EXPO_PUBLIC_DEMO === '1' || process.env.EXPO_PUBLIC_PREVIEW === '1') && !HAS_SUPABASE;
 
 const routes: Route[] = [...miscRoutes, ...nutritionRoutes, ...trainingRoutes, ...analyticsRoutes];
 

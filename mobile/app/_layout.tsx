@@ -20,7 +20,7 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, sta
 /** Routes users to the right place: signed out -> welcome, not onboarded -> onboarding, else tabs. */
 // No-login mode (EXPO_PUBLIC_PREVIEW=1): treat everyone as signed in. The backend must have GUEST_USER_ID set to serve data.
 import { DEMO } from '@/lib/demo';
-const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === '1';
+const PREVIEW = DEMO;
 
 function Gate() {
   const t = useTheme();
