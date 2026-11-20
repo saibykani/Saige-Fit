@@ -78,9 +78,20 @@ export function StepPersonal() {
         </Group>
       </Reveal>
       <Sheet visible={iosPicker} onClose={() => setIosPicker(false)} title="Date of birth">
-        <DateTimePicker value={data.date_of_birth ? fromISODate(data.date_of_birth) : new Date(2000, 0, 1)} mode="date" display="spinner"
-          maximumDate={new Date()} minimumDate={new Date(1920, 0, 1)} themeVariant={t.mode as 'dark' | 'light'}
-          onChange={(_, d) => { if (d) set({ date_of_birth: toISODate(d) }); }} />
+        {Platform.OS === 'web' ? (
+          // The native picker library does not render in browsers, so use the browser's own date input.
+          React.createElement('input', {
+            type: 'date', value: data.date_of_birth ?? '', min: '1920-01-01', max: toISODate(new Date()),
+            'aria-label': 'Date of birth',
+            onChange: (e: any) => { const v = e.target.value as string; if (/^\d{4}-\d{2}-\d{2}$/.test(v)) set({ date_of_birth: v }); },
+            style: { width: '100%', boxSizing: 'border-box', height: 54, borderRadius: 16, border: `1.5px solid ${t.border}`, background: t.surface, color: t.text,
+              fontSize: 17, padding: '0 16px', colorScheme: t.mode === 'dark' ? 'dark' : 'light', fontFamily: 'inherit' },
+          })
+        ) : (
+          <DateTimePicker value={data.date_of_birth ? fromISODate(data.date_of_birth) : new Date(2000, 0, 1)} mode="date" display="spinner"
+            maximumDate={new Date()} minimumDate={new Date(1920, 0, 1)} themeVariant={t.mode as 'dark' | 'light'}
+            onChange={(_, d) => { if (d) set({ date_of_birth: toISODate(d) }); }} />
+        )}
         <View style={{ height: 12 }} />
         <Button title="Done" onPress={() => setIosPicker(false)} />
       </Sheet>
