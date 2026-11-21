@@ -1,4 +1,4 @@
-import { Dimensions, Platform } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -16,6 +16,7 @@ function indexOf(path: string) {
 export default function TabsLayout() {
   const router = useRouter();
   const path = usePathname();
+  const { width: screenW } = useWindowDimensions(); // read here: the gesture callbacks below run on the UI thread and cannot call Dimensions.get
   const go = (dir: 1 | -1) => {
     const i = indexOf(path);
     const n = i + dir;
@@ -29,8 +30,7 @@ export default function TabsLayout() {
     // Only start from the left/right screen edges (24px) so nested horizontal lists and SwipeRow keep their own swipes.
     .onTouchesDown((e, m) => {
       const x = e.allTouches[0]?.absoluteX ?? 0;
-      const w = Dimensions.get('window').width;
-      if (x > 24 && x < w - 24) m.fail();
+      if (x > 24 && x < screenW - 24) m.fail();
     })
     .activeOffsetX([-50, 50]).failOffsetY([-18, 18])
     .onEnd((e) => {
@@ -38,13 +38,15 @@ export default function TabsLayout() {
     });
   return (
     <GestureDetector gesture={swipe}>
-      <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, lazy: true }}>
-        <Tabs.Screen name="index" />
-        <Tabs.Screen name="food" />
-        <Tabs.Screen name="workout" />
-        <Tabs.Screen name="progress" />
-        <Tabs.Screen name="profile" />
-      </Tabs>
+      <View style={{ flex: 1 }} collapsable={false}>
+        <Tabs tabBar={(p) => <TabBar {...p} />} screenOptions={{ headerShown: false, lazy: true }}>
+          <Tabs.Screen name="index" />
+          <Tabs.Screen name="food" />
+          <Tabs.Screen name="workout" />
+          <Tabs.Screen name="progress" />
+          <Tabs.Screen name="profile" />
+        </Tabs>
+      </View>
     </GestureDetector>
   );
 }
