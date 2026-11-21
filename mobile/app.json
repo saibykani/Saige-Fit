@@ -3,7 +3,7 @@
     "name": "Saige Fit",
     "slug": "saige-fit",
     "scheme": "saigefit",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "plugins": [
@@ -61,7 +61,8 @@
         "android.permission.health.READ_SLEEP",
         "android.permission.health.READ_WEIGHT",
         "android.permission.health.READ_HEART_RATE"
-      ]
+      ],
+      "versionCode": 2
     },
     "backgroundColor": "#07080A",
     "splash": {
